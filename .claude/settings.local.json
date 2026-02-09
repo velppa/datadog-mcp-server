@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__acp__Write",
+      "Bash(claude mcp:*)",
+      "mcp__acp__Edit"
+    ]
+  }
+}

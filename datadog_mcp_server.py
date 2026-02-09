@@ -10,7 +10,7 @@ import json
 import sys
 from typing import Any, Dict, List
 
-from datadog_tools import datadog_get_case, datadog_link_cases, DatadogAPIError
+from datadog_tools import datadog_get_case, datadog_comment_case, datadog_set_case_status, datadog_link_cases, DatadogAPIError
 
 
 class MCPServer:
@@ -29,6 +29,41 @@ class MCPServer:
                         }
                     },
                     "required": ["key"]
+                }
+            },
+            "datadog_comment_case": {
+                "description": "Add a comment to a Datadog case",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "key": {
+                            "type": "string",
+                            "description": "Case key (e.g., 'CONTENT-718')"
+                        },
+                        "comment": {
+                            "type": "string",
+                            "description": "Comment text to add to the case"
+                        }
+                    },
+                    "required": ["key", "comment"]
+                }
+            },
+            "datadog_set_case_status": {
+                "description": "Set the status of a Datadog case",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "key": {
+                            "type": "string",
+                            "description": "Case key (e.g., 'CONTENT-718')"
+                        },
+                        "status": {
+                            "type": "string",
+                            "description": "Case status",
+                            "enum": ["IN_PROGRESS", "OPEN", "CLOSED"]
+                        }
+                    },
+                    "required": ["key", "status"]
                 }
             },
             "datadog_link_cases": {
@@ -102,6 +137,44 @@ class MCPServer:
                     ]
                 }
 
+            elif tool_name == "datadog_comment_case":
+                key = arguments.get("key")
+                comment = arguments.get("comment")
+
+                if not key:
+                    raise ValueError("Missing required argument: key")
+                if not comment:
+                    raise ValueError("Missing required argument: comment")
+
+                result = datadog_comment_case(key, comment)
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(result, indent=2)
+                        }
+                    ]
+                }
+
+            elif tool_name == "datadog_set_case_status":
+                key = arguments.get("key")
+                status = arguments.get("status")
+
+                if not key:
+                    raise ValueError("Missing required argument: key")
+                if not status:
+                    raise ValueError("Missing required argument: status")
+
+                result = datadog_set_case_status(key, status)
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(result, indent=2)
+                        }
+                    ]
+                }
+
             elif tool_name == "datadog_link_cases":
                 parent_key = arguments.get("parent_key")
                 child_key = arguments.get("child_key")
@@ -141,19 +214,31 @@ class MCPServer:
         method = request.get("method")
         params = request.get("params", {})
 
-        if method == "initialize":
-            return self.handle_initialize(params)
-        elif method == "tools/list":
-            return self.handle_list_tools(params)
-        elif method == "tools/call":
-            return self.handle_call_tool(params)
-        else:
-            return {
-                "error": {
-                    "code": -32601,
-                    "message": f"Method not found: {method}"
-                }
+        handlers = {
+            "initialize": self.handle_initialize,
+            "tools/list": self.handle_list_tools,
+            "tools/call": self.handle_call_tool,
+        }
+
+        handler = handlers.get(method)
+        if handler:
+            return {"result": handler(params)}
+
+        # Notifications are silently ignored
+        if method and method.startswith("notifications/"):
+            return None
+
+        return {
+            "error": {
+                "code": -32601,
+                "message": f"Method not found: {method}"
             }
+        }
+
+    def _send(self, response: Dict[str, Any]):
+        """Send a JSON-RPC 2.0 response."""
+        response["jsonrpc"] = "2.0"
+        print(json.dumps(response), flush=True)
 
     def run(self):
         """Run the MCP server (stdio mode)."""
@@ -162,29 +247,27 @@ class MCPServer:
                 request = json.loads(line)
                 response = self.handle_request(request)
 
-                # Add request ID to response if present
-                if "id" in request:
-                    response["id"] = request["id"]
+                # Notifications (no id) and ignored methods get no response
+                if response is None or "id" not in request:
+                    continue
 
-                # Send response
-                print(json.dumps(response), flush=True)
+                response["id"] = request["id"]
+                self._send(response)
 
             except json.JSONDecodeError as e:
-                error_response = {
+                self._send({
                     "error": {
                         "code": -32700,
                         "message": f"Parse error: {e}"
                     }
-                }
-                print(json.dumps(error_response), flush=True)
+                })
             except Exception as e:
-                error_response = {
+                self._send({
                     "error": {
                         "code": -32603,
                         "message": f"Internal error: {e}"
                     }
-                }
-                print(json.dumps(error_response), flush=True)
+                })
 
 
 def main():

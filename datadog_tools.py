@@ -144,6 +144,80 @@ def datadog_get_case(key: str) -> Dict[str, Any]:
     return _make_request("GET", endpoint)
 
 
+def datadog_comment_case(key: str, comment: str) -> Dict[str, Any]:
+    """
+    Add a comment to a Datadog case.
+
+    Args:
+        key: Case key (e.g., "CONTENT-718")
+        comment: Comment text to add to the case
+
+    Returns:
+        Dictionary containing the created comment details
+
+    Raises:
+        DatadogAPIError: If the API request fails or case not found
+
+    Example:
+        >>> result = datadog_comment_case("CONTENT-718", "This is a test comment")
+        >>> print("Comment added successfully")
+    """
+    # Prepare comment request body
+    body = {
+        "data": {
+            "type": "case",
+            "attributes": {
+                "comment": comment
+            }
+        }
+    }
+
+    # Add the comment
+    endpoint = f"/api/v2/cases/{key}/comment"
+    return _make_request("POST", endpoint, body)
+
+
+def datadog_set_case_status(key: str, status: str) -> Dict[str, Any]:
+    """
+    Set the status of a Datadog case.
+
+    Args:
+        key: Case key (e.g., "CONTENT-718")
+        status: Case status - must be one of: "IN_PROGRESS", "OPEN", "CLOSED"
+
+    Returns:
+        Dictionary containing the updated case details
+
+    Raises:
+        DatadogAPIError: If the API request fails or case not found
+        ValueError: If status is not valid
+
+    Example:
+        >>> result = datadog_set_case_status("CONTENT-718", "IN_PROGRESS")
+        >>> print("Status updated successfully")
+    """
+    # Validate status
+    valid_statuses = ["IN_PROGRESS", "OPEN", "CLOSED"]
+    if status not in valid_statuses:
+        raise ValueError(
+            f"Invalid status: {status}. Must be one of: {', '.join(valid_statuses)}"
+        )
+
+    # Prepare status request body
+    body = {
+        "data": {
+            "type": "case",
+            "attributes": {
+                "status": status
+            }
+        }
+    }
+
+    # Set the status
+    endpoint = f"/api/v2/cases/{key}/status"
+    return _make_request("POST", endpoint, body)
+
+
 def datadog_link_cases(
     parent_key: str,
     child_key: str,
@@ -207,8 +281,11 @@ def main():
 
     if len(sys.argv) < 2:
         print("Usage:")
-        print("  Get case:   python datadog_tools.py get <case_key>")
-        print("  Link cases: python datadog_tools.py link <parent_key> <child_key> [relationship]")
+        print("  Get case:    python datadog_tools.py get <case_key>")
+        print("  Add comment: python datadog_tools.py comment <case_key> <comment_text>")
+        print("  Set status:  python datadog_tools.py status <case_key> <status>")
+        print("               (status: IN_PROGRESS, OPEN, or CLOSED)")
+        print("  Link cases:  python datadog_tools.py link <parent_key> <child_key> [relationship]")
         sys.exit(1)
 
     command = sys.argv[1]
@@ -221,6 +298,28 @@ def main():
 
             case_key = sys.argv[2]
             result = datadog_get_case(case_key)
+            print(json.dumps(result, indent=2))
+
+        elif command == "comment":
+            if len(sys.argv) < 4:
+                print("Error: Missing case key and/or comment text")
+                sys.exit(1)
+
+            case_key = sys.argv[2]
+            comment_text = " ".join(sys.argv[3:])  # Join remaining args as comment text
+
+            result = datadog_comment_case(case_key, comment_text)
+            print(json.dumps(result, indent=2))
+
+        elif command == "status":
+            if len(sys.argv) < 4:
+                print("Error: Missing case key and/or status")
+                sys.exit(1)
+
+            case_key = sys.argv[2]
+            status = sys.argv[3]
+
+            result = datadog_set_case_status(case_key, status)
             print(json.dumps(result, indent=2))
 
         elif command == "link":
