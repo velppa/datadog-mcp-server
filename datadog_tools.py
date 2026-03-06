@@ -108,6 +108,47 @@ def _make_request(
         raise DatadogAPIError(f"Invalid JSON response: {e}")
 
 
+def datadog_search_cases(
+    filter: str = None,
+    page_size: int = 100,
+    page_number: int = 1,
+    sort_field: str = "created_at",
+    sort_asc: bool = False
+) -> Dict[str, Any]:
+    """
+    Search Datadog cases with server-side filtering.
+
+    Args:
+        filter: Search query string. Supports free text and field prefixes.
+                Examples:
+                  - "circuit breaker" — text search in title/description
+                  - "circuit breaker status:open" — text + status filter
+                  - "circuit breaker mapping-pipeline status:open" — narrow to mapping CBs
+                  - "status:open" / "status:in_progress" / "status:closed"
+        page_size: Number of cases per page (max 100).
+        page_number: Page number (1-based).
+        sort_field: Sort field: "created_at", "priority", or "status".
+        sort_asc: Sort ascending (False = newest first).
+
+    Returns:
+        Dictionary with cases list and pagination meta.
+    """
+    import urllib.parse
+
+    params = {
+        "page[size]": str(page_size),
+        "page[number]": str(page_number),
+        "sort[field]": sort_field,
+        "sort[asc]": str(sort_asc).lower(),
+    }
+    if filter:
+        params["filter"] = filter
+
+    query_string = urllib.parse.urlencode(params)
+    endpoint = f"/api/v2/cases?{query_string}"
+    return _make_request("GET", endpoint)
+
+
 def datadog_get_case(key: str) -> Dict[str, Any]:
     """
     Get details of a Datadog case by its key.

@@ -10,7 +10,7 @@ import json
 import sys
 from typing import Any, Dict, List
 
-from datadog_tools import datadog_get_case, datadog_comment_case, datadog_set_case_status, datadog_link_cases, DatadogAPIError
+from datadog_tools import datadog_search_cases, datadog_get_case, datadog_comment_case, datadog_set_case_status, datadog_link_cases, DatadogAPIError
 
 
 class MCPServer:
@@ -18,6 +18,40 @@ class MCPServer:
 
     def __init__(self):
         self.tools = {
+            "datadog_search_cases": {
+                "description": "Search Datadog cases with server-side filtering. Filter supports free text and field prefixes like status:open. Examples: 'circuit breaker mapping-pipeline status:open', 'status:in_progress', 'API error status:open'.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "filter": {
+                            "type": "string",
+                            "description": "Search query. Free text + optional prefixes: status:open, status:in_progress, status:closed. Example: 'circuit breaker mapping-pipeline status:open'"
+                        },
+                        "page_size": {
+                            "type": "integer",
+                            "description": "Cases per page (default 100, max 100)",
+                            "default": 100
+                        },
+                        "page_number": {
+                            "type": "integer",
+                            "description": "Page number, 1-based (default 1)",
+                            "default": 1
+                        },
+                        "sort_field": {
+                            "type": "string",
+                            "description": "Sort field",
+                            "enum": ["created_at", "priority", "status"],
+                            "default": "created_at"
+                        },
+                        "sort_asc": {
+                            "type": "boolean",
+                            "description": "Sort ascending (default false = newest first)",
+                            "default": False
+                        }
+                    },
+                    "required": []
+                }
+            },
             "datadog_get_case": {
                 "description": "Get details of a Datadog case by its key (e.g., CONTENT-718)",
                 "inputSchema": {
@@ -122,7 +156,24 @@ class MCPServer:
         arguments = params.get("arguments", {})
 
         try:
-            if tool_name == "datadog_get_case":
+            if tool_name == "datadog_search_cases":
+                result = datadog_search_cases(
+                    filter=arguments.get("filter"),
+                    page_size=arguments.get("page_size", 100),
+                    page_number=arguments.get("page_number", 1),
+                    sort_field=arguments.get("sort_field", "created_at"),
+                    sort_asc=arguments.get("sort_asc", False),
+                )
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(result, indent=2)
+                        }
+                    ]
+                }
+
+            elif tool_name == "datadog_get_case":
                 key = arguments.get("key")
                 if not key:
                     raise ValueError("Missing required argument: key")
