@@ -11,6 +11,30 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that p
 
 ## Tools
 
+### `datadog_search_cases`
+Search Datadog cases with server-side filtering.
+
+**Parameters:**
+- `filter` (string, optional): Search query supporting free text and field prefixes
+  - Examples: `"circuit breaker"`, `"status:open"`, `"circuit breaker mapping-pipeline status:open"`
+  - Status prefixes: `status:open`, `status:in_progress`, `status:closed`
+- `page_size` (integer, optional): Cases per page (default: 100, max: 100)
+- `page_number` (integer, optional): Page number, 1-based (default: 1)
+- `sort_field` (string, optional): Sort field - `"created_at"`, `"priority"`, or `"status"` (default: `"created_at"`)
+- `sort_asc` (boolean, optional): Sort ascending (default: false = newest first)
+
+**Example:**
+```python
+# Search for open circuit breaker cases
+datadog_search_cases(
+    filter="circuit breaker mapping-pipeline status:open",
+    page_size=50
+)
+
+# Get all in-progress cases
+datadog_search_cases(filter="status:in_progress")
+```
+
 ### `datadog_get_case`
 Retrieve detailed information about a Datadog case by its key.
 
@@ -136,6 +160,7 @@ datadog_link_cases(
 
 3. **Use the tools:**
    ```
+   Ask Claude: "Search for open circuit breaker cases"
    Ask Claude: "Get details for Datadog case CONTENT-718"
    Ask Claude: "Add a comment to CONTENT-718 saying 'Investigation in progress'"
    Ask Claude: "Set CONTENT-718 status to IN_PROGRESS"
@@ -143,6 +168,18 @@ datadog_link_cases(
    ```
 
 ### As a Command-Line Tool
+
+**Search cases:**
+```bash
+# Search for circuit breaker cases
+python3 datadog_tools.py search "circuit breaker"
+
+# Search with status filter
+python3 datadog_tools.py search "circuit breaker status:open"
+
+# Search only by status
+python3 datadog_tools.py search "status:in_progress"
+```
 
 **Get case details:**
 ```bash
@@ -177,7 +214,20 @@ python3 datadog_tools.py link CONTENT-718 CONTENT-801 BLOCKS
 ### As a Python Module
 
 ```python
-from datadog_tools import datadog_get_case, datadog_comment_case, datadog_set_case_status, datadog_link_cases
+from datadog_tools import (
+    datadog_search_cases,
+    datadog_get_case,
+    datadog_comment_case,
+    datadog_set_case_status,
+    datadog_link_cases
+)
+
+# Search for cases
+results = datadog_search_cases(
+    filter="circuit breaker status:open",
+    page_size=50
+)
+print(f"Found {len(results['data'])} cases")
 
 # Get case details
 case_data = datadog_get_case("CONTENT-718")

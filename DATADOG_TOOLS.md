@@ -4,10 +4,13 @@ Python-based tools for interacting with Datadog Case Management API, integrated 
 
 ## Overview
 
-This implementation provides two core functions for Datadog case management:
+This implementation provides five core functions for Datadog case management:
 
-1. **`datadog_get_case(key)`** - Retrieve details of a case by its key
-2. **`datadog_link_cases(parent_key, child_key, relationship)`** - Create relationships between cases
+1. **`datadog_search_cases(filter, ...)`** - Search cases with server-side filtering
+2. **`datadog_get_case(key)`** - Retrieve details of a case by its key
+3. **`datadog_comment_case(key, comment)`** - Add a comment to a case
+4. **`datadog_set_case_status(key, status)`** - Set the status of a case
+5. **`datadog_link_cases(parent_key, child_key, relationship)`** - Create relationships between cases
 
 These tools use **only Python standard library** (no external dependencies) and are exposed via a Model Context Protocol (MCP) server.
 
@@ -57,9 +60,32 @@ The Datadog MCP server is already configured in `.claude_config.json`:
 
 Once configured, Claude Code can access these tools:
 
+**Search cases:**
+```
+Claude will use: datadog_search_cases(
+    filter="circuit breaker status:open"
+)
+```
+
 **Get a case:**
 ```
 Claude will use: datadog_get_case(key="CONTENT-718")
+```
+
+**Add a comment:**
+```
+Claude will use: datadog_comment_case(
+    key="CONTENT-718",
+    comment="Investigation in progress"
+)
+```
+
+**Set case status:**
+```
+Claude will use: datadog_set_case_status(
+    key="CONTENT-718",
+    status="IN_PROGRESS"
+)
 ```
 
 **Link cases:**
@@ -75,9 +101,31 @@ Claude will use: datadog_link_cases(
 
 You can also use the tools directly from the command line:
 
+**Search cases:**
+```bash
+# Search for circuit breaker cases
+python3 datadog_tools.py search "circuit breaker"
+
+# Search with status filter
+python3 datadog_tools.py search "circuit breaker status:open"
+
+# Search only by status
+python3 datadog_tools.py search "status:in_progress"
+```
+
 **Get case details:**
 ```bash
 python3 datadog_tools.py get CONTENT-718
+```
+
+**Add a comment:**
+```bash
+python3 datadog_tools.py comment CONTENT-718 "This is a test comment"
+```
+
+**Set case status:**
+```bash
+python3 datadog_tools.py status CONTENT-718 IN_PROGRESS
 ```
 
 **Link two cases:**
@@ -95,15 +143,34 @@ python3 datadog_tools.py link CONTENT-718 CONTENT-801 BLOCKS
 Import and use directly in Python code:
 
 ```python
-from datadog_tools import datadog_get_case, datadog_link_cases
+from datadog_tools import (
+    datadog_search_cases,
+    datadog_get_case,
+    datadog_comment_case,
+    datadog_set_case_status,
+    datadog_link_cases
+)
+
+# Search for cases
+results = datadog_search_cases(
+    filter="circuit breaker status:open",
+    page_size=50
+)
+print(f"Found {len(results['data'])} cases")
 
 # Get case details
 case_data = datadog_get_case("CONTENT-718")
 print(f"Title: {case_data['data']['attributes']['title']}")
 print(f"Status: {case_data['data']['attributes']['status']}")
 
+# Add a comment
+datadog_comment_case("CONTENT-718", "Investigation in progress")
+
+# Set case status
+datadog_set_case_status("CONTENT-718", "IN_PROGRESS")
+
 # Link cases
-result = datadog_link_cases(
+datadog_link_cases(
     parent_key="CONTENT-718",
     child_key="CONTENT-792",
     relationship="DUPLICATES"
@@ -112,6 +179,47 @@ print("Cases linked successfully!")
 ```
 
 ## API Reference
+
+### `datadog_search_cases(filter: str = None, page_size: int = 100, page_number: int = 1, sort_field: str = "created_at", sort_asc: bool = False) -> Dict[str, Any]`
+
+Search Datadog cases with server-side filtering.
+
+**Parameters:**
+- `filter` (str, optional): Search query string supporting:
+  - Free text search in title/description: `"circuit breaker"`
+  - Status filters: `"status:open"`, `"status:in_progress"`, `"status:closed"`
+  - Combined queries: `"circuit breaker mapping-pipeline status:open"`
+- `page_size` (int, optional): Number of cases per page (max 100). Default: 100
+- `page_number` (int, optional): Page number (1-based). Default: 1
+- `sort_field` (str, optional): Field to sort by: `"created_at"`, `"priority"`, or `"status"`. Default: `"created_at"`
+- `sort_asc` (bool, optional): Sort ascending. Default: False (newest first)
+
+**Returns:**
+- Dictionary with cases list and pagination metadata:
+  - `data`: List of case objects
+  - `meta.page.total_count`: Total number of cases matching the filter
+  - `meta.page.total_filtered_count`: Total filtered results
+
+**Example:**
+```python
+# Search for open circuit breaker cases
+results = datadog_search_cases(
+    filter="circuit breaker mapping-pipeline status:open",
+    page_size=50
+)
+for case in results['data']:
+    print(f"{case['attributes']['key']}: {case['attributes']['title']}")
+
+# Get all in-progress cases, sorted by priority
+results = datadog_search_cases(
+    filter="status:in_progress",
+    sort_field="priority",
+    sort_asc=True
+)
+```
+
+**Raises:**
+- `DatadogAPIError`: If API error occurs
 
 ### `datadog_get_case(key: str) -> Dict[str, Any]`
 
@@ -149,6 +257,48 @@ Retrieves detailed information about a Datadog case.
 
 **Raises:**
 - `DatadogAPIError`: If case not found or API error occurs
+
+### `datadog_comment_case(key: str, comment: str) -> Dict[str, Any]`
+
+Add a comment to a Datadog case.
+
+**Parameters:**
+- `key` (str): Case key, e.g., `"CONTENT-718"`
+- `comment` (str): Comment text to add to the case
+
+**Returns:**
+- Dictionary containing the created comment details
+
+**Example:**
+```python
+datadog_comment_case("CONTENT-718", "Investigation in progress")
+```
+
+**Raises:**
+- `DatadogAPIError`: If case not found or API error occurs
+
+### `datadog_set_case_status(key: str, status: str) -> Dict[str, Any]`
+
+Set the status of a Datadog case.
+
+**Parameters:**
+- `key` (str): Case key, e.g., `"CONTENT-718"`
+- `status` (str): Case status - must be one of:
+  - `"IN_PROGRESS"`: Case is being worked on
+  - `"OPEN"`: Case is open and awaiting action
+  - `"CLOSED"`: Case is closed
+
+**Returns:**
+- Dictionary containing the updated case details
+
+**Example:**
+```python
+datadog_set_case_status("CONTENT-718", "IN_PROGRESS")
+```
+
+**Raises:**
+- `DatadogAPIError`: If case not found or API error occurs
+- `ValueError`: If status is not valid
 
 ### `datadog_link_cases(parent_key: str, child_key: str, relationship: str = "DUPLICATES") -> Dict[str, Any]`
 

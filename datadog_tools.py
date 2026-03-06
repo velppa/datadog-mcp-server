@@ -322,6 +322,8 @@ def main():
 
     if len(sys.argv) < 2:
         print("Usage:")
+        print("  Search:      python datadog_tools.py search [filter_query]")
+        print("               (e.g., 'circuit breaker status:open')")
         print("  Get case:    python datadog_tools.py get <case_key>")
         print("  Add comment: python datadog_tools.py comment <case_key> <comment_text>")
         print("  Set status:  python datadog_tools.py status <case_key> <status>")
@@ -332,7 +334,12 @@ def main():
     command = sys.argv[1]
 
     try:
-        if command == "get":
+        if command == "search":
+            filter_query = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else None
+            result = datadog_search_cases(filter=filter_query)
+            print(json.dumps(result, indent=2))
+
+        elif command == "get":
             if len(sys.argv) < 3:
                 print("Error: Missing case key")
                 sys.exit(1)
