@@ -108,6 +108,29 @@ def _make_request(
         raise DatadogAPIError(f"Invalid JSON response: {e}")
 
 
+def _format_case_summary(case: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Format a case for cleaner output by promoting team to top level.
+
+    Args:
+        case: Raw case data from Datadog API
+
+    Returns:
+        Formatted case with team at top level and all other attributes preserved
+    """
+    attrs = case.get("attributes", {})
+
+    # Start with all attributes
+    result = dict(attrs)
+
+    # Extract team from nested attributes and promote to top level
+    nested_attrs = attrs.get("attributes", {})
+    if "team" in nested_attrs:
+        result["team"] = nested_attrs["team"]
+
+    return result
+
+
 def datadog_search_cases(
     filter: str = None,
     page_size: int = 100,
@@ -125,16 +148,98 @@ def datadog_search_cases(
                   - "circuit breaker status:open" — text + status filter
                   - "circuit breaker mapping-pipeline status:open" — narrow to mapping CBs
                   - "status:open" / "status:in_progress" / "status:closed"
+                  - "status:open,in_progress" — multiple statuses (makes 2 API calls internally)
         page_size: Number of cases per page (max 100).
         page_number: Page number (1-based).
         sort_field: Sort field: "created_at", "priority", or "status".
         sort_asc: Sort ascending (False = newest first).
 
     Returns:
-        Dictionary with cases list and pagination meta.
+        Dictionary with cases list and pagination meta:
+        {
+            "cases": [
+                {
+                    "key": "CONTENT-123",
+                    "title": "Case title",
+                    "status": "OPEN",
+                    "priority": "NOT_DEFINED",
+                    "created_at": "2026-03-07T18:09:15Z",
+                    "team": ["content"],
+                    "attributes": {
+                        "env": ["production"],
+                        "statemachinename": ["image-download-prod"],
+                        ...
+                    },
+                    ... (all other case attributes)
+                },
+                ...
+            ],
+            "total_count": 42,
+            "page": 1,
+            "page_size": 100
+        }
     """
     import urllib.parse
+    import re
 
+    # Check if filter contains multiple statuses (e.g., "status:open,in_progress")
+    multi_status_match = re.search(r'status:(\w+(?:,\w+)+)', filter or '')
+
+    if multi_status_match:
+        # Extract the comma-separated statuses
+        statuses = multi_status_match.group(1).split(',')
+
+        # Remove the multi-status part from the filter
+        base_filter = re.sub(r'status:\w+(?:,\w+)+', '', filter).strip()
+
+        # Make separate API calls for each status
+        all_cases = []
+        total_count = 0
+
+        for status in statuses:
+            # Build filter with single status
+            status_filter = f"status:{status.strip()}"
+            if base_filter:
+                status_filter = f"{base_filter} {status_filter}"
+
+            params = {
+                "page[size]": str(page_size),
+                "page[number]": str(page_number),
+                "sort[field]": sort_field,
+                "sort[asc]": str(sort_asc).lower(),
+                "filter": status_filter
+            }
+
+            query_string = urllib.parse.urlencode(params)
+            endpoint = f"/api/v2/cases?{query_string}"
+            raw_result = _make_request("GET", endpoint)
+
+            # Extract and clean case data
+            cases = raw_result.get("data", [])
+            cleaned_cases = [_format_case_summary(case) for case in cases]
+            all_cases.extend(cleaned_cases)
+
+            # Accumulate total count
+            meta = raw_result.get("meta", {})
+            total_count += meta.get("total_cases", len(cleaned_cases))
+
+        # Deduplicate cases by key (in case a case appears in multiple status results)
+        seen_keys = set()
+        unique_cases = []
+        for case in all_cases:
+            case_key = case.get("key")
+            if case_key and case_key not in seen_keys:
+                seen_keys.add(case_key)
+                unique_cases.append(case)
+
+        return {
+            "cases": unique_cases,
+            "total_count": len(unique_cases),
+            "page": page_number,
+            "page_size": len(unique_cases)
+        }
+
+    # Single status or no status filter - use original logic
     params = {
         "page[size]": str(page_size),
         "page[number]": str(page_number),
@@ -146,7 +251,21 @@ def datadog_search_cases(
 
     query_string = urllib.parse.urlencode(params)
     endpoint = f"/api/v2/cases?{query_string}"
-    return _make_request("GET", endpoint)
+    raw_result = _make_request("GET", endpoint)
+
+    # Extract and clean case data
+    cases = raw_result.get("data", [])
+    cleaned_cases = [_format_case_summary(case) for case in cases]
+
+    # Extract pagination info
+    meta = raw_result.get("meta", {})
+
+    return {
+        "cases": cleaned_cases,
+        "total_count": meta.get("total_cases", len(cleaned_cases)),
+        "page": page_number,
+        "page_size": len(cleaned_cases)
+    }
 
 
 def datadog_get_case(key: str) -> Dict[str, Any]:
@@ -314,6 +433,132 @@ def datadog_link_cases(
     return _make_request("POST", endpoint, body)
 
 
+def _clean_log_entry(log: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Clean a log entry to return only essential fields.
+
+    Args:
+        log: Raw log entry from Datadog API
+
+    Returns:
+        Cleaned log entry with only essential fields
+    """
+    attrs = log.get("attributes", {})
+
+    # Extract essential fields
+    cleaned = {
+        "timestamp": attrs.get("timestamp"),
+        "message": attrs.get("message", ""),
+        "status": attrs.get("status"),
+    }
+
+    # Add service if available
+    if "service" in attrs:
+        cleaned["service"] = attrs["service"]
+
+    # Add custom attributes (flatten nested attributes)
+    custom_attrs = attrs.get("attributes", {})
+    if custom_attrs:
+        # Filter out internal/noisy fields
+        excluded_keys = {"tags", "host", "source"}
+        for key, value in custom_attrs.items():
+            if key not in excluded_keys:
+                cleaned[key] = value
+
+    return cleaned
+
+
+def datadog_logs_search(
+    query: str,
+    time_range: str = "1h",
+    limit: int = 100,
+    sort: str = "-timestamp"
+) -> Dict[str, Any]:
+    """
+    Search Datadog logs with the given query.
+
+    Args:
+        query: Log search query string
+               Examples:
+                 - "job_id:12345" - search for specific job_id
+                 - "service:my-service status:error" - filter by service and status
+                 - "*" - all logs
+                 - "@http.status_code:500" - search by attribute
+        time_range: Time range for the search (default: "1h")
+                   Supports relative formats:
+                     - "1h" - last hour
+                     - "1d" - last day
+                     - "7d" - last 7 days
+                     - "30m" - last 30 minutes
+                   Or can use "now" and "now-<duration>" format internally
+        limit: Maximum number of logs to return (default: 100, max: 1000)
+        sort: Sort order (default: "-timestamp" for newest first)
+              Use "timestamp" for oldest first
+
+    Returns:
+        Dictionary containing cleaned logs:
+        {
+            "logs": [
+                {
+                    "timestamp": "2024-01-01T00:00:00Z",
+                    "message": "log message",
+                    "status": "info",
+                    "service": "service-name",
+                    "job_id": "...",  # Custom attributes
+                    ...
+                }
+            ],
+            "count": 10,
+            "has_more": false
+        }
+
+    Raises:
+        DatadogAPIError: If the API request fails
+
+    Example:
+        >>> # Search for logs from a specific job in the last day
+        >>> result = datadog_logs_search(
+        ...     query="job_id:abc-123",
+        ...     time_range="1d",
+        ...     limit=50
+        ... )
+        >>> for log in result['logs']:
+        ...     print(f"{log['timestamp']}: {log['message']}")
+    """
+    # Convert time_range to from/to format
+    # time_range format: "1h", "1d", "30m", etc.
+    to_time = "now"
+    from_time = f"now-{time_range}"
+
+    # Prepare request body
+    body = {
+        "filter": {
+            "query": query,
+            "from": from_time,
+            "to": to_time
+        },
+        "page": {
+            "limit": min(limit, 1000)  # Max 1000 per API
+        },
+        "sort": sort
+    }
+
+    # Make the request
+    endpoint = "/api/v2/logs/events/search"
+    raw_result = _make_request("POST", endpoint, body)
+
+    # Clean up the response
+    logs = raw_result.get("data", [])
+    cleaned_logs = [_clean_log_entry(log) for log in logs]
+
+    # Return simplified structure
+    return {
+        "logs": cleaned_logs,
+        "count": len(cleaned_logs),
+        "has_more": "after" in raw_result.get("meta", {}).get("page", {})
+    }
+
+
 def main():
     """
     Main function for testing the Datadog tools.
@@ -329,6 +574,8 @@ def main():
         print("  Set status:  python datadog_tools.py status <case_key> <status>")
         print("               (status: IN_PROGRESS, OPEN, or CLOSED)")
         print("  Link cases:  python datadog_tools.py link <parent_key> <child_key> [relationship]")
+        print("  Search logs: python datadog_tools.py logs <query> [time_range] [limit]")
+        print("               (e.g., 'job_id:abc-123 1d 50')")
         sys.exit(1)
 
     command = sys.argv[1]
@@ -380,6 +627,18 @@ def main():
             relationship = sys.argv[4] if len(sys.argv) > 4 else "DUPLICATES"
 
             result = datadog_link_cases(parent_key, child_key, relationship)
+            print(json.dumps(result, indent=2))
+
+        elif command == "logs":
+            if len(sys.argv) < 3:
+                print("Error: Missing query")
+                sys.exit(1)
+
+            query = sys.argv[2]
+            time_range = sys.argv[3] if len(sys.argv) > 3 else "1h"
+            limit = int(sys.argv[4]) if len(sys.argv) > 4 else 100
+
+            result = datadog_logs_search(query, time_range, limit)
             print(json.dumps(result, indent=2))
 
         else:

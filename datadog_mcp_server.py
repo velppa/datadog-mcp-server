@@ -10,7 +10,15 @@ import json
 import sys
 from typing import Any, Dict, List
 
-from datadog_tools import datadog_search_cases, datadog_get_case, datadog_comment_case, datadog_set_case_status, datadog_link_cases, DatadogAPIError
+from datadog_tools import (
+    datadog_search_cases,
+    datadog_get_case,
+    datadog_comment_case,
+    datadog_set_case_status,
+    datadog_link_cases,
+    datadog_logs_search,
+    DatadogAPIError
+)
 
 
 class MCPServer:
@@ -121,6 +129,37 @@ class MCPServer:
                         }
                     },
                     "required": ["parent_key", "child_key"]
+                }
+            },
+            "datadog_logs_search": {
+                "description": "Search Datadog logs with a query. Supports queries like 'job_id:<uuid>' or 'service:my-service status:error'. Time range examples: '1h' (last hour), '1d' (last day), '30m' (last 30 minutes).",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Log search query (e.g., 'job_id:abc-123', 'service:my-service status:error', '*' for all)"
+                        },
+                        "time_range": {
+                            "type": "string",
+                            "description": "Time range for search: '1h', '1d', '7d', '30m', etc. (default: '1h')",
+                            "default": "1h"
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum number of logs to return (default: 100, max: 1000)",
+                            "default": 100,
+                            "minimum": 1,
+                            "maximum": 1000
+                        },
+                        "sort": {
+                            "type": "string",
+                            "description": "Sort order: '-timestamp' (newest first) or 'timestamp' (oldest first)",
+                            "enum": ["-timestamp", "timestamp"],
+                            "default": "-timestamp"
+                        }
+                    },
+                    "required": ["query"]
                 }
             }
         }
@@ -237,6 +276,25 @@ class MCPServer:
                     raise ValueError("Missing required argument: child_key")
 
                 result = datadog_link_cases(parent_key, child_key, relationship)
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(result, indent=2)
+                        }
+                    ]
+                }
+
+            elif tool_name == "datadog_logs_search":
+                query = arguments.get("query")
+                time_range = arguments.get("time_range", "1h")
+                limit = arguments.get("limit", 100)
+                sort = arguments.get("sort", "-timestamp")
+
+                if not query:
+                    raise ValueError("Missing required argument: query")
+
+                result = datadog_logs_search(query, time_range, limit, sort)
                 return {
                     "content": [
                         {

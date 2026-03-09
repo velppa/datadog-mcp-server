@@ -97,6 +97,57 @@ datadog_link_cases(
 )
 ```
 
+### `datadog_logs_search`
+Search Datadog logs with a query string.
+
+**Parameters:**
+- `query` (string): Log search query
+  - Examples: `"job_id:abc-123"`, `"service:my-service status:error"`, `"*"` (all logs)
+  - Supports attribute searches: `"@http.status_code:500"`
+- `time_range` (string, optional): Time range for search (default: `"1h"`)
+  - Examples: `"1h"` (last hour), `"1d"` (last day), `"7d"` (last 7 days), `"30m"` (last 30 minutes)
+- `limit` (integer, optional): Maximum number of logs to return (default: 100, max: 1000)
+- `sort` (string, optional): Sort order (default: `"-timestamp"` for newest first)
+  - `"-timestamp"`: Newest first
+  - `"timestamp"`: Oldest first
+
+**Returns:**
+- Cleaned log structure with only essential fields:
+  ```python
+  {
+      "logs": [
+          {
+              "timestamp": "2024-01-01T00:00:00Z",
+              "message": "log message",
+              "status": "info",
+              "service": "service-name",
+              "job_id": "...",  # Custom attributes included
+          }
+      ],
+      "count": 10,
+      "has_more": false
+  }
+  ```
+
+**Example:**
+```python
+# Search for logs from a specific job in the last day
+result = datadog_logs_search(
+    query="job_id:abc-123",
+    time_range="1d",
+    limit=50
+)
+print(f"Found {result['count']} logs")
+for log in result['logs']:
+    print(f"{log['timestamp']}: {log['message']}")
+
+# Search for error logs from a service
+datadog_logs_search(
+    query="service:my-service status:error",
+    time_range="6h"
+)
+```
+
 ## Installation
 
 ### Prerequisites
@@ -165,6 +216,7 @@ datadog_link_cases(
    Ask Claude: "Add a comment to CONTENT-718 saying 'Investigation in progress'"
    Ask Claude: "Set CONTENT-718 status to IN_PROGRESS"
    Ask Claude: "Link CONTENT-792 as a duplicate of CONTENT-718"
+   Ask Claude: "Search logs for job_id:abc-123 in the last day"
    ```
 
 ### As a Command-Line Tool
@@ -211,6 +263,18 @@ python3 datadog_tools.py link CONTENT-718 CONTENT-800 RELATES_TO
 python3 datadog_tools.py link CONTENT-718 CONTENT-801 BLOCKS
 ```
 
+**Search logs:**
+```bash
+# Search for logs from a specific job in the last day
+python3 datadog_tools.py logs "job_id:abc-123" 1d 50
+
+# Search for error logs in the last hour (default)
+python3 datadog_tools.py logs "status:error"
+
+# Search for service logs in the last 6 hours
+python3 datadog_tools.py logs "service:my-service" 6h
+```
+
 ### As a Python Module
 
 ```python
@@ -219,7 +283,8 @@ from datadog_tools import (
     datadog_get_case,
     datadog_comment_case,
     datadog_set_case_status,
-    datadog_link_cases
+    datadog_link_cases,
+    datadog_logs_search
 )
 
 # Search for cases
@@ -246,6 +311,16 @@ datadog_link_cases(
     child_key="CONTENT-792",
     relationship="DUPLICATES"
 )
+
+# Search logs
+logs = datadog_logs_search(
+    query="job_id:abc-123",
+    time_range="1d",
+    limit=50
+)
+print(f"Found {logs['count']} logs")
+for log in logs['logs']:
+    print(f"{log['timestamp']}: {log['message']}")
 ```
 
 ## Testing

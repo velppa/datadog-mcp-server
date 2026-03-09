@@ -4,13 +4,17 @@ Python-based tools for interacting with Datadog Case Management API, integrated 
 
 ## Overview
 
-This implementation provides five core functions for Datadog case management:
+This implementation provides six core functions for Datadog integration:
 
+### Case Management:
 1. **`datadog_search_cases(filter, ...)`** - Search cases with server-side filtering
 2. **`datadog_get_case(key)`** - Retrieve details of a case by its key
 3. **`datadog_comment_case(key, comment)`** - Add a comment to a case
 4. **`datadog_set_case_status(key, status)`** - Set the status of a case
 5. **`datadog_link_cases(parent_key, child_key, relationship)`** - Create relationships between cases
+
+### Logs:
+6. **`datadog_logs_search(query, time_range, ...)`** - Search logs with query syntax
 
 These tools use **only Python standard library** (no external dependencies) and are exposed via a Model Context Protocol (MCP) server.
 
@@ -97,6 +101,15 @@ Claude will use: datadog_link_cases(
 )
 ```
 
+**Search logs:**
+```
+Claude will use: datadog_logs_search(
+    query="job_id:abc-123",
+    time_range="1d",
+    limit=50
+)
+```
+
 ### Direct Command Line
 
 You can also use the tools directly from the command line:
@@ -138,6 +151,18 @@ python3 datadog_tools.py link CONTENT-718 CONTENT-800 RELATES_TO
 python3 datadog_tools.py link CONTENT-718 CONTENT-801 BLOCKS
 ```
 
+**Search logs:**
+```bash
+# Search for logs from a specific job in the last day
+python3 datadog_tools.py logs "job_id:abc-123" 1d 50
+
+# Search for error logs in the last hour
+python3 datadog_tools.py logs "status:error"
+
+# Search for service logs in the last 6 hours
+python3 datadog_tools.py logs "service:my-service" 6h
+```
+
 ### As Python Module
 
 Import and use directly in Python code:
@@ -148,7 +173,8 @@ from datadog_tools import (
     datadog_get_case,
     datadog_comment_case,
     datadog_set_case_status,
-    datadog_link_cases
+    datadog_link_cases,
+    datadog_logs_search
 )
 
 # Search for cases
@@ -176,6 +202,16 @@ datadog_link_cases(
     relationship="DUPLICATES"
 )
 print("Cases linked successfully!")
+
+# Search logs
+logs = datadog_logs_search(
+    query="job_id:abc-123",
+    time_range="1d",
+    limit=50
+)
+print(f"Found {logs['count']} logs")
+for log in logs['logs']:
+    print(f"{log['timestamp']}: {log['message']}")
 ```
 
 ## API Reference
@@ -334,6 +370,66 @@ datadog_link_cases("CONTENT-718", "CONTENT-800", "RELATES_TO")
 
 **Raises:**
 - `DatadogAPIError`: If either case not found or API error occurs
+
+### `datadog_logs_search(query: str, time_range: str = "1h", limit: int = 100, sort: str = "-timestamp") -> Dict[str, Any]`
+
+Search Datadog logs with a query string.
+
+**Parameters:**
+- `query` (str): Log search query string
+  - Examples:
+    - `"job_id:12345"` - Search for specific job_id
+    - `"service:my-service status:error"` - Filter by service and status
+    - `"*"` - All logs
+    - `"@http.status_code:500"` - Search by custom attribute
+- `time_range` (str, optional): Time range for search. Default: `"1h"`
+  - Supported formats: `"1h"`, `"1d"`, `"7d"`, `"30m"`, etc.
+  - Internally converted to `"now"` and `"now-<duration>"`
+- `limit` (int, optional): Maximum number of logs to return. Default: 100, Max: 1000
+- `sort` (str, optional): Sort order. Default: `"-timestamp"` (newest first)
+  - `"-timestamp"`: Newest first
+  - `"timestamp"`: Oldest first
+
+**Returns:**
+- Dictionary containing cleaned logs (noisy fields like tags removed):
+```python
+{
+    "logs": [
+        {
+            "timestamp": "2024-01-01T00:00:00Z",
+            "message": "log message",
+            "status": "info",
+            "service": "service-name",
+            "job_id": "...",  # Custom attributes (flattened)
+            ...
+        }
+    ],
+    "count": 10,
+    "has_more": false  # True if more results available
+}
+```
+
+**Example:**
+```python
+# Search for logs from a specific job in the last day
+result = datadog_logs_search(
+    query="job_id:abc-123",
+    time_range="1d",
+    limit=50
+)
+print(f"Found {result['count']} logs")
+for log in result['logs']:
+    print(f"{log['timestamp']}: {log['message']}")
+
+# Search for error logs in the last 6 hours
+result = datadog_logs_search(
+    query="service:my-service status:error",
+    time_range="6h"
+)
+```
+
+**Raises:**
+- `DatadogAPIError`: If API error occurs
 
 ## Implementation Details
 
