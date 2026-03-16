@@ -301,7 +301,24 @@ def datadog_get_case(key: str) -> Dict[str, Any]:
         >>> print(case_data['data']['attributes']['title'])
     """
     endpoint = f"/api/v2/cases/{key}"
-    return _make_request("GET", endpoint)
+    case_data = _make_request("GET", endpoint)
+
+    timeline_endpoint = f"/api/v2/cases/{key}/timelines"
+    timeline_data = _make_request("GET", timeline_endpoint)
+    comments = []
+    for entry in timeline_data.get("data", []):
+        attrs = entry.get("attributes", {})
+        if attrs.get("type") == "COMMENT":
+            author = attrs.get("author", {}).get("content", {})
+            comments.append({
+                "id": entry.get("id"),
+                "message": attrs.get("cell_content", {}).get("message", ""),
+                "created_at": attrs.get("created_at"),
+                "author": author.get("name") or author.get("email", ""),
+            })
+    case_data["comments"] = comments
+
+    return case_data
 
 
 def datadog_comment_case(key: str, comment: str) -> Dict[str, Any]:

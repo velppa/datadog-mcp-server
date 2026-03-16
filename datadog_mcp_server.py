@@ -61,7 +61,7 @@ class MCPServer:
                 }
             },
             "datadog_get_case": {
-                "description": "Get details of a Datadog case by its key (e.g., CONTENT-718)",
+                "description": "Get details (including comments) of a Datadog case by its key (e.g., CONTENT-718)",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
