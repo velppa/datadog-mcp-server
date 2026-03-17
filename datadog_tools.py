@@ -318,6 +318,10 @@ def datadog_get_case(key: str) -> Dict[str, Any]:
             })
     case_data["comments"] = comments
 
+    # Override the API's comment_count (always 0) with actual count
+    if "data" in case_data and "attributes" in case_data["data"]:
+        case_data["data"]["attributes"]["comment_count"] = len(comments)
+
     return case_data
 
 
