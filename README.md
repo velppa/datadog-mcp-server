@@ -5,7 +5,7 @@ server that provides Datadog integration for Claude
 Code and other MCP clients.  The focus is on Case Management and Logging
 capabilities.
 
-The official [[https://www.datadoghq.com/blog/datadog-remote-mcp-server/][Datadog MCP Server]]
+The official [Datadog MCP Server](https://www.datadoghq.com/blog/datadog-remote-mcp-server/)
 implements very limited subset of tools that I use.
 
 Also, for some reason for Case Management Datadog keeps some API endpoints
