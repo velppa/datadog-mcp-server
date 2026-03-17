@@ -1,6 +1,19 @@
 # Datadog MCP Server
 
-A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that provides Datadog Case Management integration for Claude Code and other MCP clients.
+This [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)
+server that provides Datadog integration for Claude
+Code and other MCP clients.  The focus is on Case Management and Logging
+capabilities.
+
+The official [[https://www.datadoghq.com/blog/datadog-remote-mcp-server/][Datadog MCP Server]]
+implements very limited subset of tools that I use.
+
+Also, for some reason for Case Management Datadog keeps some API endpoints
+undocumented:
+
+- Link cases
+- Get case comments (creating and deleting comments are public APIs,
+  but retrieving comments is not, sic!)
 
 ## Features
 
@@ -27,7 +40,7 @@ Search Datadog cases with server-side filtering.
 ```python
 # Search for open circuit breaker cases
 datadog_search_cases(
-    filter="circuit breaker mapping-pipeline status:open",
+    filter="circuit breaker status:open",
     page_size=50
 )
 
@@ -39,24 +52,24 @@ datadog_search_cases(filter="status:in_progress")
 Retrieve detailed information about a Datadog case by its key.
 
 **Parameters:**
-- `key` (string): Case key, e.g., `"CONTENT-718"`
+- `key` (string): Case key, e.g., `"KEY-718"`
 
 **Example:**
 ```python
-datadog_get_case(key="CONTENT-718")
+datadog_get_case(key="KEY-718")
 ```
 
 ### `datadog_comment_case`
 Add a comment to a Datadog case.
 
 **Parameters:**
-- `key` (string): Case key, e.g., `"CONTENT-718"`
+- `key` (string): Case key, e.g., `"KEY-718"`
 - `comment` (string): Comment text to add to the case
 
 **Example:**
 ```python
 datadog_comment_case(
-    key="CONTENT-718",
+    key="KEY-718",
     comment="This is a test comment"
 )
 ```
@@ -65,7 +78,7 @@ datadog_comment_case(
 Set the status of a Datadog case.
 
 **Parameters:**
-- `key` (string): Case key, e.g., `"CONTENT-718"`
+- `key` (string): Case key, e.g., `"KEY-718"`
 - `status` (string): Case status - must be one of:
   - `"IN_PROGRESS"` - Case is being worked on
   - `"OPEN"` - Case is open and awaiting action
@@ -74,7 +87,7 @@ Set the status of a Datadog case.
 **Example:**
 ```python
 datadog_set_case_status(
-    key="CONTENT-718",
+    key="KEY-718",
     status="IN_PROGRESS"
 )
 ```
@@ -83,16 +96,16 @@ datadog_set_case_status(
 Create a relationship between two Datadog cases.
 
 **Parameters:**
-- `parent_key` (string): Parent case key, e.g., `"CONTENT-718"`
-- `child_key` (string): Child case key, e.g., `"CONTENT-792"`
+- `parent_key` (string): Parent case key, e.g., `"KEY-718"`
+- `child_key` (string): Child case key, e.g., `"KEY-792"`
 - `relationship` (string): Relationship type (default: `"DUPLICATES"`)
   - Valid values: `"DUPLICATES"`, `"RELATES_TO"`, `"BLOCKS"`
 
 **Example:**
 ```python
 datadog_link_cases(
-    parent_key="CONTENT-718",
-    child_key="CONTENT-792",
+    parent_key="KEY-718",
+    child_key="KEY-792",
     relationship="DUPLICATES"
 )
 ```
@@ -212,10 +225,10 @@ datadog_logs_search(
 3. **Use the tools:**
    ```
    Ask Claude: "Search for open circuit breaker cases"
-   Ask Claude: "Get details for Datadog case CONTENT-718"
-   Ask Claude: "Add a comment to CONTENT-718 saying 'Investigation in progress'"
-   Ask Claude: "Set CONTENT-718 status to IN_PROGRESS"
-   Ask Claude: "Link CONTENT-792 as a duplicate of CONTENT-718"
+   Ask Claude: "Get details for Datadog case KEY-718"
+   Ask Claude: "Add a comment to KEY-718 saying 'Investigation in progress'"
+   Ask Claude: "Set KEY-718 status to IN_PROGRESS"
+   Ask Claude: "Link KEY-792 as a duplicate of KEY-718"
    Ask Claude: "Search logs for job_id:abc-123 in the last day"
    ```
 
@@ -235,32 +248,32 @@ python3 datadog_tools.py search "status:in_progress"
 
 **Get case details:**
 ```bash
-python3 datadog_tools.py get CONTENT-718
+python3 datadog_tools.py get KEY-718
 ```
 
 **Add a comment:**
 ```bash
-python3 datadog_tools.py comment CONTENT-718 "This is a test comment"
+python3 datadog_tools.py comment KEY-718 "This is a test comment"
 ```
 
 **Set case status:**
 ```bash
 # Set status to IN_PROGRESS
-python3 datadog_tools.py status CONTENT-718 IN_PROGRESS
+python3 datadog_tools.py status KEY-718 IN_PROGRESS
 
 # Other valid statuses
-python3 datadog_tools.py status CONTENT-718 OPEN
-python3 datadog_tools.py status CONTENT-718 CLOSED
+python3 datadog_tools.py status KEY-718 OPEN
+python3 datadog_tools.py status KEY-718 CLOSED
 ```
 
 **Link cases:**
 ```bash
-# Mark CONTENT-792 as duplicate of CONTENT-718
-python3 datadog_tools.py link CONTENT-718 CONTENT-792 DUPLICATES
+# Mark KEY-792 as duplicate of KEY-718
+python3 datadog_tools.py link KEY-718 KEY-792 DUPLICATES
 
 # Other relationship types
-python3 datadog_tools.py link CONTENT-718 CONTENT-800 RELATES_TO
-python3 datadog_tools.py link CONTENT-718 CONTENT-801 BLOCKS
+python3 datadog_tools.py link KEY-718 KEY-800 RELATES_TO
+python3 datadog_tools.py link KEY-718 KEY-801 BLOCKS
 ```
 
 **Search logs:**
@@ -295,20 +308,20 @@ results = datadog_search_cases(
 print(f"Found {len(results['data'])} cases")
 
 # Get case details
-case_data = datadog_get_case("CONTENT-718")
+case_data = datadog_get_case("KEY-718")
 print(f"Title: {case_data['data']['attributes']['title']}")
 print(f"Status: {case_data['data']['attributes']['status']}")
 
 # Add a comment
-datadog_comment_case("CONTENT-718", "This is a test comment")
+datadog_comment_case("KEY-718", "This is a test comment")
 
 # Set case status
-datadog_set_case_status("CONTENT-718", "IN_PROGRESS")
+datadog_set_case_status("KEY-718", "IN_PROGRESS")
 
 # Link cases
 datadog_link_cases(
-    parent_key="CONTENT-718",
-    child_key="CONTENT-792",
+    parent_key="KEY-718",
+    child_key="KEY-792",
     relationship="DUPLICATES"
 )
 
@@ -335,7 +348,7 @@ echo '{"id":1,"method":"initialize","params":{}}' | python3 datadog_mcp_server.p
 echo '{"id":2,"method":"tools/list","params":{}}' | python3 datadog_mcp_server.py
 
 # Call a tool
-echo '{"id":3,"method":"tools/call","params":{"name":"datadog_get_case","arguments":{"key":"CONTENT-718"}}}' | python3 datadog_mcp_server.py
+echo '{"id":3,"method":"tools/call","params":{"name":"datadog_get_case","arguments":{"key":"KEY-718"}}}' | python3 datadog_mcp_server.py
 ```
 
 ### Test Direct CLI
@@ -344,7 +357,7 @@ echo '{"id":3,"method":"tools/call","params":{"name":"datadog_get_case","argumen
 export DD_API_KEY="your_key"
 export DD_APP_KEY="your_app_key"
 
-python3 datadog_tools.py get CONTENT-718
+python3 datadog_tools.py get KEY-718
 ```
 
 ## API Reference
@@ -384,7 +397,7 @@ export DD_APP_KEY="your_app_key"
 - Ensure Application key has required scopes (`cases_read`, `cases_write`)
 
 ### Error: "Datadog API error: 404 Not Found"
-- Verify the case key is correct (e.g., `CONTENT-718`)
+- Verify the case key is correct (e.g., `KEY-718`)
 - Check that the case exists in Datadog
 - Ensure you're using the correct `DD_SITE` (eu vs us)
 

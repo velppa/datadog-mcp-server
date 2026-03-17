@@ -159,7 +159,7 @@ def datadog_search_cases(
         {
             "cases": [
                 {
-                    "key": "CONTENT-123",
+                    "key": "KEY-123",
                     "title": "Case title",
                     "status": "OPEN",
                     "priority": "NOT_DEFINED",
@@ -273,7 +273,7 @@ def datadog_get_case(key: str) -> Dict[str, Any]:
     Get details of a Datadog case by its key.
 
     Args:
-        key: Case key (e.g., "CONTENT-718")
+        key: Case key (e.g., "KEY-718")
 
     Returns:
         Dictionary containing case details with structure:
@@ -282,7 +282,7 @@ def datadog_get_case(key: str) -> Dict[str, Any]:
                 "id": "case_uuid",
                 "type": "case",
                 "attributes": {
-                    "key": "CONTENT-718",
+                    "key": "KEY-718",
                     "title": "...",
                     "description": "...",
                     "status": "...",
@@ -297,7 +297,7 @@ def datadog_get_case(key: str) -> Dict[str, Any]:
         DatadogAPIError: If the API request fails or case not found
 
     Example:
-        >>> case_data = datadog_get_case("CONTENT-718")
+        >>> case_data = datadog_get_case("KEY-718")
         >>> print(case_data['data']['attributes']['title'])
     """
     endpoint = f"/api/v2/cases/{key}"
@@ -326,7 +326,7 @@ def datadog_comment_case(key: str, comment: str) -> Dict[str, Any]:
     Add a comment to a Datadog case.
 
     Args:
-        key: Case key (e.g., "CONTENT-718")
+        key: Case key (e.g., "KEY-718")
         comment: Comment text to add to the case
 
     Returns:
@@ -336,7 +336,7 @@ def datadog_comment_case(key: str, comment: str) -> Dict[str, Any]:
         DatadogAPIError: If the API request fails or case not found
 
     Example:
-        >>> result = datadog_comment_case("CONTENT-718", "This is a test comment")
+        >>> result = datadog_comment_case("KEY-718", "This is a test comment")
         >>> print("Comment added successfully")
     """
     # Prepare comment request body
@@ -359,7 +359,7 @@ def datadog_set_case_status(key: str, status: str) -> Dict[str, Any]:
     Set the status of a Datadog case.
 
     Args:
-        key: Case key (e.g., "CONTENT-718")
+        key: Case key (e.g., "KEY-718")
         status: Case status - must be one of: "IN_PROGRESS", "OPEN", "CLOSED"
 
     Returns:
@@ -370,7 +370,7 @@ def datadog_set_case_status(key: str, status: str) -> Dict[str, Any]:
         ValueError: If status is not valid
 
     Example:
-        >>> result = datadog_set_case_status("CONTENT-718", "IN_PROGRESS")
+        >>> result = datadog_set_case_status("KEY-718", "IN_PROGRESS")
         >>> print("Status updated successfully")
     """
     # Validate status
@@ -404,8 +404,8 @@ def datadog_link_cases(
     Create a relationship between two Datadog cases.
 
     Args:
-        parent_key: Parent case key (e.g., "CONTENT-718")
-        child_key: Child case key (e.g., "CONTENT-792")
+        parent_key: Parent case key (e.g., "KEY-718")
+        child_key: Child case key (e.g., "KEY-792")
         relationship: Relationship type (default: "DUPLICATES")
                      Valid values: "DUPLICATES", "RELATES_TO", "BLOCKS", etc.
 
@@ -416,8 +416,8 @@ def datadog_link_cases(
         DatadogAPIError: If the API request fails or cases not found
 
     Example:
-        >>> # Mark CONTENT-792 as duplicate of CONTENT-718
-        >>> result = datadog_link_cases("CONTENT-718", "CONTENT-792", "DUPLICATES")
+        >>> # Mark KEY-792 as duplicate of KEY-718
+        >>> result = datadog_link_cases("KEY-718", "KEY-792", "DUPLICATES")
         >>> print("Cases linked successfully")
     """
     # First, get both cases to retrieve their internal IDs

@@ -61,13 +61,13 @@ class MCPServer:
                 }
             },
             "datadog_get_case": {
-                "description": "Get details (including comments) of a Datadog case by its key (e.g., CONTENT-718)",
+                "description": "Get details (including comments) of a Datadog case by its key (e.g., KEY-718)",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "key": {
                             "type": "string",
-                            "description": "Case key (e.g., 'CONTENT-718')"
+                            "description": "Case key (e.g., 'KEY-718')"
                         }
                     },
                     "required": ["key"]
@@ -80,7 +80,7 @@ class MCPServer:
                     "properties": {
                         "key": {
                             "type": "string",
-                            "description": "Case key (e.g., 'CONTENT-718')"
+                            "description": "Case key (e.g., 'KEY-718')"
                         },
                         "comment": {
                             "type": "string",
@@ -97,7 +97,7 @@ class MCPServer:
                     "properties": {
                         "key": {
                             "type": "string",
-                            "description": "Case key (e.g., 'CONTENT-718')"
+                            "description": "Case key (e.g., 'KEY-718')"
                         },
                         "status": {
                             "type": "string",
@@ -115,11 +115,11 @@ class MCPServer:
                     "properties": {
                         "parent_key": {
                             "type": "string",
-                            "description": "Parent case key (e.g., 'CONTENT-718')"
+                            "description": "Parent case key (e.g., 'KEY-718')"
                         },
                         "child_key": {
                             "type": "string",
-                            "description": "Child case key (e.g., 'CONTENT-792')"
+                            "description": "Child case key (e.g., 'KEY-792')"
                         },
                         "relationship": {
                             "type": "string",

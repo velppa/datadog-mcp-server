@@ -122,8 +122,8 @@ The circuit-breaker-handler skill is designed to work with Datadog cases created
 **Example workflow:**
 
 1. Circuit breaker opens for a provider
-2. Datadog creates a case (e.g., `CONTENT-718`)
-3. Invoke the skill: `/circuit-breaker-handler CONTENT-718`
+2. Datadog creates a case (e.g., `KEY-718`)
+3. Invoke the skill: `/circuit-breaker-handler KEY-718`
 4. Claude investigates using Datadog and Snowflake tools
 5. Claude updates the case with findings and resolution
 

@@ -73,13 +73,13 @@ Claude will use: datadog_search_cases(
 
 **Get a case:**
 ```
-Claude will use: datadog_get_case(key="CONTENT-718")
+Claude will use: datadog_get_case(key="KEY-718")
 ```
 
 **Add a comment:**
 ```
 Claude will use: datadog_comment_case(
-    key="CONTENT-718",
+    key="KEY-718",
     comment="Investigation in progress"
 )
 ```
@@ -87,7 +87,7 @@ Claude will use: datadog_comment_case(
 **Set case status:**
 ```
 Claude will use: datadog_set_case_status(
-    key="CONTENT-718",
+    key="KEY-718",
     status="IN_PROGRESS"
 )
 ```
@@ -95,8 +95,8 @@ Claude will use: datadog_set_case_status(
 **Link cases:**
 ```
 Claude will use: datadog_link_cases(
-    parent_key="CONTENT-718",
-    child_key="CONTENT-792",
+    parent_key="KEY-718",
+    child_key="KEY-792",
     relationship="DUPLICATES"
 )
 ```
@@ -128,27 +128,27 @@ python3 datadog_tools.py search "status:in_progress"
 
 **Get case details:**
 ```bash
-python3 datadog_tools.py get CONTENT-718
+python3 datadog_tools.py get KEY-718
 ```
 
 **Add a comment:**
 ```bash
-python3 datadog_tools.py comment CONTENT-718 "This is a test comment"
+python3 datadog_tools.py comment KEY-718 "This is a test comment"
 ```
 
 **Set case status:**
 ```bash
-python3 datadog_tools.py status CONTENT-718 IN_PROGRESS
+python3 datadog_tools.py status KEY-718 IN_PROGRESS
 ```
 
 **Link two cases:**
 ```bash
-# Mark CONTENT-792 as duplicate of CONTENT-718
-python3 datadog_tools.py link CONTENT-718 CONTENT-792 DUPLICATES
+# Mark KEY-792 as duplicate of KEY-718
+python3 datadog_tools.py link KEY-718 KEY-792 DUPLICATES
 
 # Other relationship types
-python3 datadog_tools.py link CONTENT-718 CONTENT-800 RELATES_TO
-python3 datadog_tools.py link CONTENT-718 CONTENT-801 BLOCKS
+python3 datadog_tools.py link KEY-718 KEY-800 RELATES_TO
+python3 datadog_tools.py link KEY-718 KEY-801 BLOCKS
 ```
 
 **Search logs:**
@@ -185,20 +185,20 @@ results = datadog_search_cases(
 print(f"Found {len(results['data'])} cases")
 
 # Get case details
-case_data = datadog_get_case("CONTENT-718")
+case_data = datadog_get_case("KEY-718")
 print(f"Title: {case_data['data']['attributes']['title']}")
 print(f"Status: {case_data['data']['attributes']['status']}")
 
 # Add a comment
-datadog_comment_case("CONTENT-718", "Investigation in progress")
+datadog_comment_case("KEY-718", "Investigation in progress")
 
 # Set case status
-datadog_set_case_status("CONTENT-718", "IN_PROGRESS")
+datadog_set_case_status("KEY-718", "IN_PROGRESS")
 
 # Link cases
 datadog_link_cases(
-    parent_key="CONTENT-718",
-    child_key="CONTENT-792",
+    parent_key="KEY-718",
+    child_key="KEY-792",
     relationship="DUPLICATES"
 )
 print("Cases linked successfully!")
@@ -262,12 +262,12 @@ results = datadog_search_cases(
 Retrieves detailed information about a Datadog case.
 
 **Parameters:**
-- `key` (str): Case key, e.g., `"CONTENT-718"`
+- `key` (str): Case key, e.g., `"KEY-718"`
 
 **Returns:**
 - Dictionary with case details including:
   - `data.id`: Internal case UUID
-  - `data.attributes.key`: Case key (CONTENT-XXX)
+  - `data.attributes.key`: Case key (KEY-XXX)
   - `data.attributes.title`: Case title
   - `data.attributes.description`: Case description
   - `data.attributes.status`: Case status
@@ -281,7 +281,7 @@ Retrieves detailed information about a Datadog case.
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "type": "case",
     "attributes": {
-      "key": "CONTENT-718",
+      "key": "KEY-718",
       "title": "Circuit breaker opened for AGD provider",
       "description": "...",
       "status": "IN_PROGRESS",
@@ -299,7 +299,7 @@ Retrieves detailed information about a Datadog case.
 Add a comment to a Datadog case.
 
 **Parameters:**
-- `key` (str): Case key, e.g., `"CONTENT-718"`
+- `key` (str): Case key, e.g., `"KEY-718"`
 - `comment` (str): Comment text to add to the case
 
 **Returns:**
@@ -307,7 +307,7 @@ Add a comment to a Datadog case.
 
 **Example:**
 ```python
-datadog_comment_case("CONTENT-718", "Investigation in progress")
+datadog_comment_case("KEY-718", "Investigation in progress")
 ```
 
 **Raises:**
@@ -318,7 +318,7 @@ datadog_comment_case("CONTENT-718", "Investigation in progress")
 Set the status of a Datadog case.
 
 **Parameters:**
-- `key` (str): Case key, e.g., `"CONTENT-718"`
+- `key` (str): Case key, e.g., `"KEY-718"`
 - `status` (str): Case status - must be one of:
   - `"IN_PROGRESS"`: Case is being worked on
   - `"OPEN"`: Case is open and awaiting action
@@ -329,7 +329,7 @@ Set the status of a Datadog case.
 
 **Example:**
 ```python
-datadog_set_case_status("CONTENT-718", "IN_PROGRESS")
+datadog_set_case_status("KEY-718", "IN_PROGRESS")
 ```
 
 **Raises:**
@@ -341,8 +341,8 @@ datadog_set_case_status("CONTENT-718", "IN_PROGRESS")
 Creates a relationship between two Datadog cases.
 
 **Parameters:**
-- `parent_key` (str): Parent case key, e.g., `"CONTENT-718"`
-- `child_key` (str): Child case key, e.g., `"CONTENT-792"`
+- `parent_key` (str): Parent case key, e.g., `"KEY-718"`
+- `child_key` (str): Child case key, e.g., `"KEY-792"`
 - `relationship` (str, optional): Relationship type. Default: `"DUPLICATES"`
 
 **Valid Relationship Types:**
@@ -361,11 +361,11 @@ Creates a relationship between two Datadog cases.
 
 **Example:**
 ```python
-# Mark CONTENT-792 as duplicate of CONTENT-718
-datadog_link_cases("CONTENT-718", "CONTENT-792", "DUPLICATES")
+# Mark KEY-792 as duplicate of KEY-718
+datadog_link_cases("KEY-718", "KEY-792", "DUPLICATES")
 
-# Indicate CONTENT-800 relates to CONTENT-718
-datadog_link_cases("CONTENT-718", "CONTENT-800", "RELATES_TO")
+# Indicate KEY-800 relates to KEY-718
+datadog_link_cases("KEY-718", "KEY-800", "RELATES_TO")
 ```
 
 **Raises:**
@@ -472,7 +472,7 @@ All functions raise `DatadogAPIError` with descriptive messages:
 from datadog_tools import DatadogAPIError
 
 try:
-    case = datadog_get_case("CONTENT-999")
+    case = datadog_get_case("KEY-999")
 except DatadogAPIError as e:
     print(f"Error: {e}")
     # Error: Datadog API error: 404 Not Found
@@ -490,10 +490,10 @@ export DD_API_KEY="your_key"
 export DD_APP_KEY="your_app_key"
 
 # Test get_case
-python3 datadog_tools.py get CONTENT-718
+python3 datadog_tools.py get KEY-718
 
 # Test link_cases (be careful - this modifies Datadog!)
-# python3 datadog_tools.py link CONTENT-718 CONTENT-792 DUPLICATES
+# python3 datadog_tools.py link KEY-718 KEY-792 DUPLICATES
 ```
 
 ### MCP Server Test
@@ -530,7 +530,7 @@ export DD_APP_KEY="your_app_key"
 
 ### Error: "Datadog API error: 404 Not Found"
 
-- Verify the case key is correct (e.g., `CONTENT-718`)
+- Verify the case key is correct (e.g., `KEY-718`)
 - Check that the case exists in Datadog
 - Ensure you're using the correct DD_SITE (eu vs us)
 
