@@ -325,6 +325,127 @@ def datadog_get_case(key: str) -> Dict[str, Any]:
     return case_data
 
 
+def _get_case_type_id(case_type: str) -> str:
+    """
+    Resolve a case type name (e.g., "Standard") to its UUID.
+
+    Args:
+        case_type: Case type name (e.g., "Standard", "Security", "Change Request")
+
+    Returns:
+        Case type UUID string
+
+    Raises:
+        DatadogAPIError: If the API request fails or case type not found
+    """
+    result = _make_request("GET", "/api/v2/cases/types")
+    for ct in result.get("data", []):
+        if ct.get("attributes", {}).get("name", "").lower() == case_type.lower():
+            return ct["id"]
+    available = [t["attributes"]["name"] for t in result.get("data", []) if "attributes" in t]
+    raise DatadogAPIError(
+        f"Case type '{case_type}' not found. Available types: {', '.join(available)}"
+    )
+
+
+def _get_project_id(project_key: str) -> str:
+    """
+    Resolve a project key (e.g., "CONTENT") to its UUID.
+
+    Args:
+        project_key: Project key (e.g., "CONTENT", "MON")
+
+    Returns:
+        Project UUID string
+
+    Raises:
+        DatadogAPIError: If the API request fails or project not found
+    """
+    result = _make_request("GET", "/api/v2/cases/projects")
+    for project in result.get("data", []):
+        if project.get("attributes", {}).get("key") == project_key:
+            return project["id"]
+    available = [p["attributes"]["key"] for p in result.get("data", []) if "attributes" in p]
+    raise DatadogAPIError(
+        f"Project '{project_key}' not found. Available projects: {', '.join(available)}"
+    )
+
+
+def datadog_create_case(
+    title: str,
+    project_key: str,
+    case_type: str = "Standard",
+    description: str = "",
+    priority: str = "NOT_DEFINED",
+    assignee_id: str = None,
+) -> Dict[str, Any]:
+    """
+    Create a new Datadog case.
+
+    Args:
+        title: Case title
+        project_key: Project key (e.g., "CONTENT", "MON")
+        case_type: Case type name (default: "Standard")
+                   Available types: "Standard", "Event Management", "Security",
+                   "Change Request", "Error Tracking", "Logs Optimization Insights"
+        description: Case description (optional)
+        priority: Case priority - one of: "NOT_DEFINED", "P1", "P2", "P3", "P4", "P5"
+        assignee_id: User UUID to assign the case to (optional)
+
+    Returns:
+        Dictionary containing the created case details
+
+    Raises:
+        DatadogAPIError: If the API request fails or project/type not found
+        ValueError: If priority is not valid
+
+    Example:
+        >>> result = datadog_create_case("New issue", "CONTENT", description="Details here")
+        >>> print(result['data']['attributes']['key'])
+    """
+    valid_priorities = ["NOT_DEFINED", "P1", "P2", "P3", "P4", "P5"]
+    if priority not in valid_priorities:
+        raise ValueError(
+            f"Invalid priority: {priority}. Must be one of: {', '.join(valid_priorities)}"
+        )
+
+    project_id = _get_project_id(project_key)
+    type_id = _get_case_type_id(case_type)
+
+    body = {
+        "data": {
+            "type": "case",
+            "attributes": {
+                "title": title,
+                "priority": priority,
+                "type_id": type_id,
+            },
+            "relationships": {
+                "project": {
+                    "data": {
+                        "type": "project",
+                        "id": project_id
+                    }
+                }
+            }
+        }
+    }
+
+    if description:
+        body["data"]["attributes"]["description"] = description
+
+    if assignee_id:
+        body["data"]["relationships"]["assignee"] = {
+            "data": {
+                "type": "user",
+                "id": assignee_id
+            }
+        }
+
+    endpoint = "/api/v2/cases"
+    return _make_request("POST", endpoint, body)
+
+
 def datadog_comment_case(key: str, comment: str) -> Dict[str, Any]:
     """
     Add a comment to a Datadog case.
@@ -590,6 +711,7 @@ def main():
         print("Usage:")
         print("  Search:      python datadog_tools.py search [filter_query]")
         print("               (e.g., 'circuit breaker status:open')")
+        print("  Create case: python datadog_tools.py create <project_key> <title> [description]")
         print("  Get case:    python datadog_tools.py get <case_key>")
         print("  Add comment: python datadog_tools.py comment <case_key> <comment_text>")
         print("  Set status:  python datadog_tools.py status <case_key> <status>")
@@ -605,6 +727,18 @@ def main():
         if command == "search":
             filter_query = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else None
             result = datadog_search_cases(filter=filter_query)
+            print(json.dumps(result, indent=2))
+
+        elif command == "create":
+            if len(sys.argv) < 4:
+                print("Error: Missing project_key and/or title")
+                sys.exit(1)
+
+            project_key = sys.argv[2]
+            title = sys.argv[3]
+            description = " ".join(sys.argv[4:]) if len(sys.argv) > 4 else ""
+
+            result = datadog_create_case(title, project_key, description=description)
             print(json.dumps(result, indent=2))
 
         elif command == "get":

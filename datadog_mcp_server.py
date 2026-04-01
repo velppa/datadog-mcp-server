@@ -13,6 +13,7 @@ from typing import Any, Dict, List
 from datadog_tools import (
     datadog_search_cases,
     datadog_get_case,
+    datadog_create_case,
     datadog_comment_case,
     datadog_set_case_status,
     datadog_link_cases,
@@ -71,6 +72,43 @@ class MCPServer:
                         }
                     },
                     "required": ["key"]
+                }
+            },
+            "datadog_create_case": {
+                "description": "Create a new Datadog case in a project",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "title": {
+                            "type": "string",
+                            "description": "Case title"
+                        },
+                        "project_key": {
+                            "type": "string",
+                            "description": "Project key (e.g., 'CONTENT', 'MON')"
+                        },
+                        "case_type": {
+                            "type": "string",
+                            "description": "Case type name",
+                            "enum": ["Standard", "Event Management", "Security", "Change Request", "Error Tracking", "Logs Optimization Insights"],
+                            "default": "Standard"
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "Case description (optional)"
+                        },
+                        "priority": {
+                            "type": "string",
+                            "description": "Case priority",
+                            "enum": ["NOT_DEFINED", "P1", "P2", "P3", "P4", "P5"],
+                            "default": "NOT_DEFINED"
+                        },
+                        "assignee_id": {
+                            "type": "string",
+                            "description": "User UUID to assign the case to (optional)"
+                        }
+                    },
+                    "required": ["title", "project_key"]
                 }
             },
             "datadog_comment_case": {
@@ -218,6 +256,32 @@ class MCPServer:
                     raise ValueError("Missing required argument: key")
 
                 result = datadog_get_case(key)
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(result, indent=2)
+                        }
+                    ]
+                }
+
+            elif tool_name == "datadog_create_case":
+                title = arguments.get("title")
+                project_key = arguments.get("project_key")
+
+                if not title:
+                    raise ValueError("Missing required argument: title")
+                if not project_key:
+                    raise ValueError("Missing required argument: project_key")
+
+                result = datadog_create_case(
+                    title=title,
+                    project_key=project_key,
+                    case_type=arguments.get("case_type", "Standard"),
+                    description=arguments.get("description", ""),
+                    priority=arguments.get("priority", "NOT_DEFINED"),
+                    assignee_id=arguments.get("assignee_id"),
+                )
                 return {
                     "content": [
                         {
