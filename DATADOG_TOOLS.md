@@ -16,6 +16,9 @@ This implementation provides six core functions for Datadog integration:
 ### Logs:
 6. **`datadog_logs_search(query, time_range, ...)`** - Search logs with query syntax
 
+### Events:
+7. **`datadog_search_events(query, time_from, time_to, ...)`** - Search events with flexible time ranges and cursor pagination
+
 These tools use **only Python standard library** (no external dependencies) and are exposed via a Model Context Protocol (MCP) server.
 
 ## Setup
@@ -107,6 +110,25 @@ Claude will use: datadog_logs_search(
     query="job_id:abc-123",
     time_range="1d",
     limit=50
+)
+```
+
+**Search events:**
+```
+Claude will use: datadog_search_events(
+    query="source:kubernetes",
+    time_from="now-20m",
+    time_to="now-10m",
+    limit=10
+)
+```
+
+**Search events with pagination:**
+```
+Claude will use: datadog_search_events(
+    query="*",
+    time_from="now-1h",
+    cursor="eyJhZnRlci..."
 )
 ```
 
@@ -426,6 +448,62 @@ result = datadog_logs_search(
     query="service:my-service status:error",
     time_range="6h"
 )
+```
+
+**Raises:**
+- `DatadogAPIError`: If API error occurs
+
+### `datadog_search_events(query: str = "*", time_from: str = "now-1h", time_to: str = "now", limit: int = 10, sort: str = "-timestamp", cursor: str = None, timezone: str = None) -> Dict[str, Any]`
+
+Search Datadog events using the POST events search endpoint. Supports flexible time ranges and cursor-based pagination.
+
+**Parameters:**
+- `query` (str, optional): Event search query string. Default: `"*"`
+  - Examples:
+    - `"*"` - All events
+    - `"source:kubernetes"` - Events from kubernetes
+    - `"status:error"` - Error events
+- `time_from` (str, optional): The minimum time for the requested events. Supports date math and regular timestamps in milliseconds. Default: `"now-1h"`
+- `time_to` (str, optional): The maximum time for the requested events. Supports date math and regular timestamps in milliseconds. Default: `"now"`
+- `limit` (int, optional): Maximum events per page. Default: 10, Max: 1000
+- `sort` (str, optional): Sort order. Default: `"-timestamp"` (newest first)
+  - `"-timestamp"`: Newest first
+  - `"timestamp"`: Oldest first
+- `cursor` (str, optional): Pagination cursor from a previous response. Pass the `cursor` value from a previous result to fetch the next page.
+- `timezone` (str, optional): Timezone for results, e.g. `"Europe/Amsterdam"`
+
+**Returns:**
+```python
+{
+    "events": [
+        {
+            "id": "...",
+            "title": "Events from the Pod ...",
+            "message": "...",
+            "timestamp": "2026-04-13T15:47:07Z",
+            "status": "warning",
+            "priority": "normal",
+            "source": "kubernetes_apiserver",
+            "tags": [...]
+        }
+    ],
+    "count": 10,
+    "cursor": "eyJhZnRlci..."  # null if no more pages
+}
+```
+
+**Pagination example:**
+```python
+# First page
+page1 = datadog_search_events(query="*", time_from="now-1h", limit=10)
+print(f"Got {page1['count']} events")
+
+# Next page
+if page1["cursor"]:
+    page2 = datadog_search_events(
+        query="*", time_from="now-1h", limit=10,
+        cursor=page1["cursor"]
+    )
 ```
 
 **Raises:**

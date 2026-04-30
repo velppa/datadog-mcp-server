@@ -15,6 +15,7 @@ import json
 import os
 import urllib.request
 import urllib.error
+import urllib.parse
 from typing import Dict, Any, Optional
 
 
@@ -698,6 +699,151 @@ def datadog_logs_search(
         "logs": cleaned_logs,
         "count": len(cleaned_logs),
         "has_more": "after" in raw_result.get("meta", {}).get("page", {})
+    }
+
+
+def _clean_event(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Clean and flatten a raw event from the Datadog Events API."""
+    attrs = event.get("attributes", {})
+    cleaned = {
+        "id": event.get("id"),
+        "title": attrs.get("attributes", {}).get("title", ""),
+        "message": attrs.get("message", ""),
+        "timestamp": attrs.get("timestamp"),
+        "status": attrs.get("attributes", {}).get("status"),
+        "priority": attrs.get("attributes", {}).get("priority"),
+        "source": attrs.get("attributes", {}).get("evt", {}).get("type", ""),
+        "tags": attrs.get("tags", []),
+    }
+    return {k: v for k, v in cleaned.items() if v is not None and v != "" and v != []}
+
+
+def datadog_events_list(
+    query: str = "*",
+    time_range: str = "1d",
+    limit: int = 100,
+    sort: str = "-timestamp"
+) -> Dict[str, Any]:
+    """
+    List Datadog events matching a query.
+
+    Args:
+        query: Event search query string (default: "*" for all events)
+               Examples:
+                 - "*" - all events
+                 - "source:kubernetes" - events from kubernetes
+                 - "status:error" - error events
+                 - "tags:env:production" - events with specific tag
+        time_range: Time range for the search (default: "1d")
+                   Supports: "1h", "1d", "7d", "30m", etc.
+        limit: Maximum number of events to return (default: 100, max: 1000)
+        sort: Sort order (default: "-timestamp" for newest first)
+              Use "timestamp" for oldest first
+
+    Returns:
+        Dictionary with events, count, and pagination info.
+
+    Raises:
+        DatadogAPIError: If the API request fails
+    """
+    to_time = "now"
+    from_time = f"now-{time_range}"
+
+    params = {
+        "filter[query]": query,
+        "filter[from]": from_time,
+        "filter[to]": to_time,
+        "page[limit]": str(min(limit, 1000)),
+        "sort": sort,
+    }
+
+    query_string = urllib.parse.urlencode(params)
+    endpoint = f"/api/v2/events?{query_string}"
+    raw_result = _make_request("GET", endpoint)
+
+    events = raw_result.get("data", [])
+    cleaned_events = [_clean_event(e) for e in events]
+
+    meta = raw_result.get("meta", {})
+    has_more = "after" in meta.get("page", {})
+
+    return {
+        "events": cleaned_events,
+        "count": len(cleaned_events),
+        "has_more": has_more,
+    }
+
+
+def datadog_search_events(
+    query: str = "*",
+    time_from: str = "now-1h",
+    time_to: str = "now",
+    limit: int = 10,
+    sort: str = "-timestamp",
+    cursor: str = None,
+    timezone: str = None,
+) -> Dict[str, Any]:
+    """
+    Search Datadog events using the POST events search endpoint.
+
+    Args:
+        query: Event search query string (default: "*" for all events)
+               Examples:
+                 - "*" - all events
+                 - "source:kubernetes" - events from kubernetes
+                 - "status:error" - error events
+        time_from: The minimum time for the requested events.
+                   Supports date math and regular timestamps in milliseconds.
+        time_to: The maximum time for the requested events.
+                 Supports date math and regular timestamps in milliseconds.
+        limit: Maximum number of events per page (default: 10, max: 1000)
+        sort: Sort order (default: "-timestamp" for newest first)
+              Use "timestamp" for oldest first
+        cursor: Pagination cursor from a previous response (optional)
+        timezone: Timezone for results, e.g. "Europe/Amsterdam" (optional)
+
+    Returns:
+        Dictionary with events, count, and pagination info:
+        {
+            "events": [...],
+            "count": 10,
+            "cursor": "..." or null
+        }
+
+    Raises:
+        DatadogAPIError: If the API request fails
+    """
+    body: Dict[str, Any] = {
+        "filter": {
+            "from": time_from,
+            "query": query,
+            "to": time_to,
+        },
+        "page": {
+            "limit": min(limit, 1000),
+        },
+        "sort": sort,
+    }
+
+    if cursor:
+        body["page"]["cursor"] = cursor
+
+    if timezone:
+        body["options"] = {"timezone": timezone}
+
+    endpoint = "/api/v2/events/search"
+    raw_result = _make_request("POST", endpoint, body)
+
+    events = raw_result.get("data", [])
+    cleaned_events = [_clean_event(e) for e in events]
+
+    page_meta = raw_result.get("meta", {}).get("page", {})
+    next_cursor = page_meta.get("after")
+
+    return {
+        "events": cleaned_events,
+        "count": len(cleaned_events),
+        "cursor": next_cursor,
     }
 
 

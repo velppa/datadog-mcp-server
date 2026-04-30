@@ -1,8 +1,8 @@
 # Datadog MCP Server
 
 This [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)
-server that provides Datadog integration for Claude
-Code and other MCP clients.  The focus is on Case Management and Logging
+server that provides Datadog integration for Claude Code and other MCP
+clients.  The focus is on Case Management, Events and Logging
 capabilities.
 
 The official [Datadog MCP Server](https://www.datadoghq.com/blog/datadog-remote-mcp-server/)
@@ -86,10 +86,7 @@ Set the status of a Datadog case.
 
 **Example:**
 ```python
-datadog_set_case_status(
-    key="KEY-718",
-    status="IN_PROGRESS"
-)
+datadog_set_case_status(key="KEY-718", status="IN_PROGRESS")
 ```
 
 ### `datadog_link_cases`
@@ -103,11 +100,7 @@ Create a relationship between two Datadog cases.
 
 **Example:**
 ```python
-datadog_link_cases(
-    parent_key="KEY-718",
-    child_key="KEY-792",
-    relationship="DUPLICATES"
-)
+datadog_link_cases(parent_key="KEY-718", child_key="KEY-792", relationship="DUPLICATES")
 ```
 
 ### `datadog_logs_search`
@@ -145,20 +138,57 @@ Search Datadog logs with a query string.
 **Example:**
 ```python
 # Search for logs from a specific job in the last day
-result = datadog_logs_search(
-    query="job_id:abc-123",
-    time_range="1d",
-    limit=50
-)
+result = datadog_logs_search(query="job_id:abc-123", time_range="1d", limit=50)
 print(f"Found {result['count']} logs")
 for log in result['logs']:
     print(f"{log['timestamp']}: {log['message']}")
 
 # Search for error logs from a service
-datadog_logs_search(
-    query="service:my-service status:error",
-    time_range="6h"
-)
+datadog_logs_search(query="service:my-service status:error", time_range="6h")
+```
+
+### `datadog_search_events`
+Search Datadog events with flexible time ranges and cursor-based pagination.
+
+**Parameters:**
+- `query` (string, optional): Event search query (default: `"*"`)
+  - Examples: `"*"`, `"source:kubernetes"`, `"status:error"`
+- `time_from` (string, optional): The minimum time for the requested events. Supports date math and regular timestamps in milliseconds. Default: `"now-1h"`
+- `time_to` (string, optional): The maximum time for the requested events. Supports date math and regular timestamps in milliseconds. Default: `"now"`
+- `limit` (integer, optional): Max events per page (default: 10, max: 1000)
+- `sort` (string, optional): Sort order (default: `"-timestamp"` for newest first)
+- `cursor` (string, optional): Pagination cursor from a previous response
+- `timezone` (string, optional): Timezone for results, e.g. `"Europe/Amsterdam"`
+
+**Returns:**
+```python
+{
+    "events": [
+        {
+            "id": "...",
+            "title": "Events from the Pod ...",
+            "message": "...",
+            "timestamp": "2026-04-13T15:47:07Z",
+            "status": "warning",
+            "priority": "normal",
+            "source": "kubernetes_apiserver",
+            "tags": [...]
+        }
+    ],
+    "count": 10,
+    "cursor": "eyJhZnRlci..."  # null if no more pages
+}
+```
+
+**Example:**
+```python
+# Search events from the last 20 minutes
+result = datadog_search_events(query="source:kubernetes", time_from="now-20m", time_to="now")
+
+# Paginate through results
+page1 = datadog_search_events(query="*", time_from="now-1h", limit=10)
+if page1["cursor"]:
+    page2 = datadog_search_events(query="*", time_from="now-1h", limit=10, cursor=page1["cursor"])
 ```
 
 ## Installation
@@ -230,6 +260,8 @@ datadog_logs_search(
    Ask Claude: "Set KEY-718 status to IN_PROGRESS"
    Ask Claude: "Link KEY-792 as a duplicate of KEY-718"
    Ask Claude: "Search logs for job_id:abc-123 in the last day"
+   Ask Claude: "Search events from the last 20 minutes"
+   Ask Claude: "Search kubernetes events from now-1h to now-30m"
    ```
 
 ### As a Command-Line Tool
@@ -297,7 +329,8 @@ from datadog_tools import (
     datadog_comment_case,
     datadog_set_case_status,
     datadog_link_cases,
-    datadog_logs_search
+    datadog_logs_search,
+    datadog_search_events,
 )
 
 # Search for cases
@@ -334,6 +367,15 @@ logs = datadog_logs_search(
 print(f"Found {logs['count']} logs")
 for log in logs['logs']:
     print(f"{log['timestamp']}: {log['message']}")
+
+# Search events
+events = datadog_search_events(
+    query="source:kubernetes",
+    time_from="now-20m",
+    time_to="now",
+    limit=10,
+)
+print(f"Found {events['count']} events")
 ```
 
 ## Testing

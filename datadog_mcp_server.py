@@ -18,6 +18,7 @@ from datadog_tools import (
     datadog_set_case_status,
     datadog_link_cases,
     datadog_logs_search,
+    datadog_search_events,
     DatadogAPIError
 )
 
@@ -199,6 +200,51 @@ class MCPServer:
                     },
                     "required": ["query"]
                 }
+            },
+            "datadog_search_events": {
+                "description": "Search Datadog events using the events search API (POST). Supports flexible time ranges like 'now-20m' to 'now-10m', pagination via cursor, and timezone options.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Event search query (e.g., '*', 'source:kubernetes', 'status:error')",
+                            "default": "*"
+                        },
+                        "time_from": {
+                            "type": "string",
+                            "description": "The minimum time for the requested events. Supports date math and regular timestamps in milliseconds. Default: 'now-1h'",
+                            "default": "now-1h"
+                        },
+                        "time_to": {
+                            "type": "string",
+                            "description": "The maximum time for the requested events. Supports date math and regular timestamps in milliseconds. Default: 'now'",
+                            "default": "now"
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max events per page (default: 10, max: 1000)",
+                            "default": 10,
+                            "minimum": 1,
+                            "maximum": 1000
+                        },
+                        "sort": {
+                            "type": "string",
+                            "description": "Sort order: '-timestamp' (newest first) or 'timestamp' (oldest first)",
+                            "enum": ["-timestamp", "timestamp"],
+                            "default": "-timestamp"
+                        },
+                        "cursor": {
+                            "type": "string",
+                            "description": "Pagination cursor from a previous response (optional)"
+                        },
+                        "timezone": {
+                            "type": "string",
+                            "description": "Timezone for results, e.g. 'Europe/Amsterdam' (optional)"
+                        }
+                    },
+                    "required": []
+                }
             }
         }
 
@@ -359,6 +405,25 @@ class MCPServer:
                     raise ValueError("Missing required argument: query")
 
                 result = datadog_logs_search(query, time_range, limit, sort)
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(result, indent=2)
+                        }
+                    ]
+                }
+
+            elif tool_name == "datadog_search_events":
+                result = datadog_search_events(
+                    query=arguments.get("query", "*"),
+                    time_from=arguments.get("time_from", "now-1h"),
+                    time_to=arguments.get("time_to", "now"),
+                    limit=arguments.get("limit", 10),
+                    sort=arguments.get("sort", "-timestamp"),
+                    cursor=arguments.get("cursor"),
+                    timezone=arguments.get("timezone"),
+                )
                 return {
                     "content": [
                         {
