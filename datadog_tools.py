@@ -576,6 +576,58 @@ def datadog_link_cases(
     return _make_request("POST", endpoint, body)
 
 
+def datadog_assign_case(key: str, assignee_id: str) -> Dict[str, Any]:
+    """
+    Assign a Datadog case to a user.
+
+    Args:
+        key: Case key (e.g., "KEY-718")
+        assignee_id: Assignee's Datadog user UUID (e.g., "ec34f974-2c51-11ee-bc35-7a3adbb5cabc")
+
+    Returns:
+        Updated case payload (includes relationships.assignee).
+
+    Raises:
+        DatadogAPIError: If the API request fails or the user UUID is invalid.
+
+    Example:
+        >>> datadog_assign_case("KEY-2401", "ec34f974-2c51-11ee-bc35-7a3adbb5cabc")
+    """
+    body = {
+        "data": {
+            "type": "case",
+            "attributes": {
+                "assignee_id": assignee_id
+            }
+        }
+    }
+    endpoint = f"/api/v2/cases/{key}/assign"
+    return _make_request("POST", endpoint, body)
+
+
+def datadog_unassign_case(key: str) -> Dict[str, Any]:
+    """
+    Remove the current assignee from a Datadog case.
+
+    Args:
+        key: Case key (e.g., "KEY-718")
+
+    Returns:
+        Updated case payload (relationships.assignee is null after this call).
+
+    Raises:
+        DatadogAPIError: If the API request fails or the case is not found.
+    """
+    body = {
+        "data": {
+            "type": "case",
+            "attributes": {}
+        }
+    }
+    endpoint = f"/api/v2/cases/{key}/unassign"
+    return _make_request("POST", endpoint, body)
+
+
 def _clean_log_entry(log: Dict[str, Any]) -> Dict[str, Any]:
     """
     Clean a log entry to return only essential fields.

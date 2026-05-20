@@ -17,6 +17,8 @@ from datadog_tools import (
     datadog_comment_case,
     datadog_set_case_status,
     datadog_link_cases,
+    datadog_assign_case,
+    datadog_unassign_case,
     datadog_logs_search,
     datadog_search_events,
     DatadogAPIError
@@ -168,6 +170,36 @@ class MCPServer:
                         }
                     },
                     "required": ["parent_key", "child_key"]
+                }
+            },
+            "datadog_assign_case": {
+                "description": "Assign a Datadog case to a user by their Datadog user UUID. Use this to make someone the case owner (e.g. escalate to a partnerships contact). UUID is required — fetch from /api/v2/cases/{key} relationships.assignee.data.id after a one-time UI assignment if unknown.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "key": {
+                            "type": "string",
+                            "description": "Case key (e.g., 'KEY-718')"
+                        },
+                        "assignee_id": {
+                            "type": "string",
+                            "description": "Assignee's Datadog user UUID (e.g., 'ec34f974-2c51-11ee-bc35-7a3adbb5cabc')"
+                        }
+                    },
+                    "required": ["key", "assignee_id"]
+                }
+            },
+            "datadog_unassign_case": {
+                "description": "Remove the current assignee from a Datadog case (sets assignee to null).",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "key": {
+                            "type": "string",
+                            "description": "Case key (e.g., 'KEY-718')"
+                        }
+                    },
+                    "required": ["key"]
                 }
             },
             "datadog_logs_search": {
@@ -386,6 +418,41 @@ class MCPServer:
                     raise ValueError("Missing required argument: child_key")
 
                 result = datadog_link_cases(parent_key, child_key, relationship)
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(result, indent=2)
+                        }
+                    ]
+                }
+
+            elif tool_name == "datadog_assign_case":
+                key = arguments.get("key")
+                assignee_id = arguments.get("assignee_id")
+
+                if not key:
+                    raise ValueError("Missing required argument: key")
+                if not assignee_id:
+                    raise ValueError("Missing required argument: assignee_id")
+
+                result = datadog_assign_case(key, assignee_id)
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(result, indent=2)
+                        }
+                    ]
+                }
+
+            elif tool_name == "datadog_unassign_case":
+                key = arguments.get("key")
+
+                if not key:
+                    raise ValueError("Missing required argument: key")
+
+                result = datadog_unassign_case(key)
                 return {
                     "content": [
                         {
