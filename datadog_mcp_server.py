@@ -16,6 +16,8 @@ from datadog_tools import (
     datadog_create_case,
     datadog_comment_case,
     datadog_set_case_status,
+    datadog_assign_case,
+    datadog_find_user,
     datadog_link_cases,
     datadog_logs_search,
     datadog_search_events,
@@ -145,6 +147,36 @@ class MCPServer:
                         }
                     },
                     "required": ["key", "status"]
+                }
+            },
+            "datadog_assign_case": {
+                "description": "Assign a Datadog case to a user by their UUID",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "key": {
+                            "type": "string",
+                            "description": "Case key (e.g., 'CONTENT-1983')"
+                        },
+                        "assignee_id": {
+                            "type": "string",
+                            "description": "UUID of the user to assign (e.g., '1816ebdc-1434-11ee-b732-76f284310139')"
+                        }
+                    },
+                    "required": ["key", "assignee_id"]
+                }
+            },
+            "datadog_find_user": {
+                "description": "Find Datadog users by email, handle, or name (substring match). Use to resolve a user UUID needed by datadog_assign_case.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "filter": {
+                            "type": "string",
+                            "description": "Email, handle, or name substring (e.g., 'pavel@vio.com')"
+                        }
+                    },
+                    "required": ["filter"]
                 }
             },
             "datadog_link_cases": {
@@ -366,6 +398,40 @@ class MCPServer:
                     raise ValueError("Missing required argument: status")
 
                 result = datadog_set_case_status(key, status)
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(result, indent=2)
+                        }
+                    ]
+                }
+
+            elif tool_name == "datadog_assign_case":
+                key = arguments.get("key")
+                assignee_id = arguments.get("assignee_id")
+
+                if not key:
+                    raise ValueError("Missing required argument: key")
+                if not assignee_id:
+                    raise ValueError("Missing required argument: assignee_id")
+
+                result = datadog_assign_case(key, assignee_id)
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(result, indent=2)
+                        }
+                    ]
+                }
+
+            elif tool_name == "datadog_find_user":
+                filter_str = arguments.get("filter")
+                if not filter_str:
+                    raise ValueError("Missing required argument: filter")
+
+                result = datadog_find_user(filter_str)
                 return {
                     "content": [
                         {

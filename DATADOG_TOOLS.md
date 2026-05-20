@@ -11,7 +11,11 @@ This implementation provides six core functions for Datadog integration:
 2. **`datadog_get_case(key)`** - Retrieve details of a case by its key
 3. **`datadog_comment_case(key, comment)`** - Add a comment to a case
 4. **`datadog_set_case_status(key, status)`** - Set the status of a case
-5. **`datadog_link_cases(parent_key, child_key, relationship)`** - Create relationships between cases
+5. **`datadog_assign_case(key, assignee_id)`** - Assign a case to a user by UUID
+6. **`datadog_link_cases(parent_key, child_key, relationship)`** - Create relationships between cases
+
+### Users:
+- **`datadog_find_user(filter)`** - Find users by email/handle/name (resolves UUID for `datadog_assign_case`)
 
 ### Logs:
 6. **`datadog_logs_search(query, time_range, ...)`** - Search logs with query syntax

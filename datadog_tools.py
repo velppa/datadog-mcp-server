@@ -521,6 +521,91 @@ def datadog_set_case_status(key: str, status: str) -> Dict[str, Any]:
     return _make_request("POST", endpoint, body)
 
 
+def datadog_assign_case(key: str, assignee_id: str) -> Dict[str, Any]:
+    """
+    Assign a Datadog case to a user.
+
+    Args:
+        key: Case key (e.g., "CONTENT-1983")
+        assignee_id: UUID of the user to assign (e.g., "1816ebdc-1434-11ee-b732-76f284310139")
+
+    Returns:
+        Dictionary containing the updated case details
+
+    Raises:
+        DatadogAPIError: If the API request fails or case not found
+    """
+    body = {
+        "data": {
+            "type": "case",
+            "attributes": {
+                "assignee_id": assignee_id
+            }
+        }
+    }
+
+    endpoint = f"/api/v2/cases/{key}/assign"
+    return _make_request("POST", endpoint, body)
+
+
+def datadog_find_user(filter: str) -> Dict[str, Any]:
+    """
+    Find Datadog users by email, handle, or name (substring match).
+
+    Wraps GET /api/v2/users?filter=<filter>. Useful for resolving the
+    UUID needed by datadog_assign_case from a known email.
+
+    Args:
+        filter: Filter string (email, handle, or name substring).
+                Example: "pavel@vio.com"
+
+    Returns:
+        Dictionary with matched users:
+        {
+            "users": [
+                {
+                    "id": "<uuid>",
+                    "email": "...",
+                    "handle": "...",
+                    "name": "...",
+                    "status": "Active",
+                    "disabled": false
+                },
+                ...
+            ],
+            "total_count": <int>
+        }
+
+    Raises:
+        DatadogAPIError: If the API request fails
+
+    Example:
+        >>> result = datadog_find_user("pavel@vio.com")
+        >>> uuid = result["users"][0]["id"]
+    """
+    params = {"filter": filter}
+    query_string = urllib.parse.urlencode(params)
+    endpoint = f"/api/v2/users?{query_string}"
+    raw = _make_request("GET", endpoint)
+
+    users = []
+    for u in raw.get("data", []):
+        attrs = u.get("attributes", {})
+        users.append({
+            "id": u.get("id"),
+            "email": attrs.get("email"),
+            "handle": attrs.get("handle"),
+            "name": attrs.get("name"),
+            "status": attrs.get("status"),
+            "disabled": attrs.get("disabled"),
+        })
+
+    return {
+        "users": users,
+        "total_count": len(users),
+    }
+
+
 def datadog_link_cases(
     parent_key: str,
     child_key: str,
