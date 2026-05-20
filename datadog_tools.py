@@ -521,33 +521,6 @@ def datadog_set_case_status(key: str, status: str) -> Dict[str, Any]:
     return _make_request("POST", endpoint, body)
 
 
-def datadog_assign_case(key: str, assignee_id: str) -> Dict[str, Any]:
-    """
-    Assign a Datadog case to a user.
-
-    Args:
-        key: Case key (e.g., "CONTENT-1983")
-        assignee_id: UUID of the user to assign (e.g., "1816ebdc-1434-11ee-b732-76f284310139")
-
-    Returns:
-        Dictionary containing the updated case details
-
-    Raises:
-        DatadogAPIError: If the API request fails or case not found
-    """
-    body = {
-        "data": {
-            "type": "case",
-            "attributes": {
-                "assignee_id": assignee_id
-            }
-        }
-    }
-
-    endpoint = f"/api/v2/cases/{key}/assign"
-    return _make_request("POST", endpoint, body)
-
-
 def datadog_find_user(filter: str) -> Dict[str, Any]:
     """
     Find Datadog users by email, handle, or name (substring match).
@@ -1007,6 +980,10 @@ def main():
         print("  Unassign:    python datadog_tools.py unassign <case_key>")
         print("  Search logs: python datadog_tools.py logs <query> [time_range] [limit]")
         print("               (e.g., 'job_id:abc-123 1d 50')")
+        print("  Find user:   python datadog_tools.py find-user <filter>")
+        print("               (e.g., 'pavel@vio.com')")
+        print("  List events: python datadog_tools.py events [query] [time_range] [limit]")
+        print("  Search events: python datadog_tools.py search-events [query] [time_from] [time_to] [limit]")
         sys.exit(1)
 
     command = sys.argv[1]
@@ -1101,6 +1078,30 @@ def main():
             limit = int(sys.argv[4]) if len(sys.argv) > 4 else 100
 
             result = datadog_logs_search(query, time_range, limit)
+            print(json.dumps(result, indent=2))
+
+        elif command == "find-user":
+            if len(sys.argv) < 3:
+                print("Error: Missing filter")
+                sys.exit(1)
+
+            filter_str = sys.argv[2]
+            result = datadog_find_user(filter_str)
+            print(json.dumps(result, indent=2))
+
+        elif command == "events":
+            query = sys.argv[2] if len(sys.argv) > 2 else "*"
+            time_range = sys.argv[3] if len(sys.argv) > 3 else "1d"
+            limit = int(sys.argv[4]) if len(sys.argv) > 4 else 100
+            result = datadog_events_list(query, time_range, limit)
+            print(json.dumps(result, indent=2))
+
+        elif command == "search-events":
+            query = sys.argv[2] if len(sys.argv) > 2 else "*"
+            time_from = sys.argv[3] if len(sys.argv) > 3 else "now-1h"
+            time_to = sys.argv[4] if len(sys.argv) > 4 else "now"
+            limit = int(sys.argv[5]) if len(sys.argv) > 5 else 10
+            result = datadog_search_events(query, time_from, time_to, limit)
             print(json.dumps(result, indent=2))
 
         else:

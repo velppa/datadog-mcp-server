@@ -17,11 +17,11 @@ from datadog_tools import (
     datadog_comment_case,
     datadog_set_case_status,
     datadog_assign_case,
+    datadog_unassign_case,
     datadog_find_user,
     datadog_link_cases,
-    datadog_assign_case,
-    datadog_unassign_case,
     datadog_logs_search,
+    datadog_events_list,
     datadog_search_events,
     DatadogAPIError
 )
@@ -151,23 +151,6 @@ class MCPServer:
                     "required": ["key", "status"]
                 }
             },
-            "datadog_assign_case": {
-                "description": "Assign a Datadog case to a user by their UUID",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "key": {
-                            "type": "string",
-                            "description": "Case key (e.g., 'CONTENT-1983')"
-                        },
-                        "assignee_id": {
-                            "type": "string",
-                            "description": "UUID of the user to assign (e.g., '1816ebdc-1434-11ee-b732-76f284310139')"
-                        }
-                    },
-                    "required": ["key", "assignee_id"]
-                }
-            },
             "datadog_find_user": {
                 "description": "Find Datadog users by email, handle, or name (substring match). Use to resolve a user UUID needed by datadog_assign_case.",
                 "inputSchema": {
@@ -263,6 +246,38 @@ class MCPServer:
                         }
                     },
                     "required": ["query"]
+                }
+            },
+            "datadog_events_list": {
+                "description": "List Datadog events via GET /api/v2/events with a query and relative time range (e.g., '1h', '1d').",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Event search query (e.g., '*', 'source:kubernetes', 'status:error')",
+                            "default": "*"
+                        },
+                        "time_range": {
+                            "type": "string",
+                            "description": "Relative time range: '1h', '1d', '7d', '30m', etc. (default: '1d')",
+                            "default": "1d"
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max events to return (default: 100, max: 1000)",
+                            "default": 100,
+                            "minimum": 1,
+                            "maximum": 1000
+                        },
+                        "sort": {
+                            "type": "string",
+                            "description": "Sort order: '-timestamp' (newest first) or 'timestamp' (oldest first)",
+                            "enum": ["-timestamp", "timestamp"],
+                            "default": "-timestamp"
+                        }
+                    },
+                    "required": []
                 }
             },
             "datadog_search_events": {
@@ -439,25 +454,6 @@ class MCPServer:
                     ]
                 }
 
-            elif tool_name == "datadog_assign_case":
-                key = arguments.get("key")
-                assignee_id = arguments.get("assignee_id")
-
-                if not key:
-                    raise ValueError("Missing required argument: key")
-                if not assignee_id:
-                    raise ValueError("Missing required argument: assignee_id")
-
-                result = datadog_assign_case(key, assignee_id)
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": json.dumps(result, indent=2)
-                        }
-                    ]
-                }
-
             elif tool_name == "datadog_find_user":
                 filter_str = arguments.get("filter")
                 if not filter_str:
@@ -538,6 +534,22 @@ class MCPServer:
                     raise ValueError("Missing required argument: query")
 
                 result = datadog_logs_search(query, time_range, limit, sort)
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(result, indent=2)
+                        }
+                    ]
+                }
+
+            elif tool_name == "datadog_events_list":
+                result = datadog_events_list(
+                    query=arguments.get("query", "*"),
+                    time_range=arguments.get("time_range", "1d"),
+                    limit=arguments.get("limit", 100),
+                    sort=arguments.get("sort", "-timestamp"),
+                )
                 return {
                     "content": [
                         {
