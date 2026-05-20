@@ -173,7 +173,7 @@ class MCPServer:
                 }
             },
             "datadog_assign_case": {
-                "description": "Assign a Datadog case to a user by their Datadog user UUID. Use this to make someone the case owner (e.g. escalate to a partnerships contact). UUID is required — fetch from /api/v2/cases/{key} relationships.assignee.data.id after a one-time UI assignment if unknown.",
+                "description": "Assign a Datadog case to a user by their Datadog user UUID.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
